@@ -1,0 +1,171 @@
+Hadith: 1
+Book: Revelation
+Narrator: Umar ibn al-Khattab
+Theme: Intention, sincerity
+Summary: Deeds are judged by the intentions behind them, and each person receives what he intended. Whoever migrates for the sake of God and His Messenger, his migration counts as such; whoever migrates for worldly gain or to marry a woman, his migration counts only for what he sought.
+
+Hadith: 2
+Book: Belief
+Narrator: Abdullah ibn Umar
+Theme: Pillars of Islam
+Summary: Islam is built upon five foundations: testifying that there is no god but God and that Muhammad is His Messenger, establishing prayer, giving obligatory charity, performing pilgrimage to the House, and fasting the month of Ramadan.
+
+Hadith: 3
+Book: Belief
+Narrator: Anas ibn Malik
+Theme: Brotherhood, love for others
+Summary: None of you truly believes until he wishes for his brother what he wishes for himself.
+
+Hadith: 4
+Book: Belief
+Narrator: Abdullah ibn Amr
+Theme: Restraint of tongue and hand
+Summary: A Muslim is one from whose tongue and hand other Muslims are safe, and a migrant is one who abandons what God has forbidden.
+
+Hadith: 5
+Book: Knowledge
+Narrator: Muawiyah
+Theme: Seeking knowledge
+Summary: When God intends good for a person, He grants him understanding of religion.
+
+Hadith: 6
+Book: Knowledge
+Narrator: Abdullah ibn Amr
+Theme: Conveying knowledge
+Summary: Convey from me even a single verse. Knowledge is not seized from people directly, but through the passing away of the learned, until the ignorant are taken as guides and lead others astray.
+
+Hadith: 7
+Book: Ablution
+Narrator: Abu Hurayrah
+Theme: Purity, prayer
+Summary: The prayer of a person who breaks his state of purity is not accepted until he performs ablution again.
+
+Hadith: 8
+Book: Prayer Times
+Narrator: Abu Hurayrah
+Theme: Regularity of prayer
+Summary: If a river ran at the door of one of you and he bathed in it five times a day, no trace of dirt would remain on him. Such is the likeness of the five daily prayers, by which God erases sins.
+
+Hadith: 9
+Book: Friday Prayer
+Narrator: Abu Hurayrah
+Theme: Friday, cleanliness
+Summary: Washing on Friday is due upon every adult, along with cleaning the teeth and using perfume if available.
+
+Hadith: 10
+Book: Obligatory Charity
+Narrator: Abu Hurayrah
+Theme: Charity, generosity
+Summary: Charity does not decrease wealth. God increases the honour of one who forgives, and whoever humbles himself for God's sake is raised in rank by Him.
+
+Hadith: 11
+Book: Fasting
+Narrator: Abu Hurayrah
+Theme: Ramadan, forgiveness
+Summary: Whoever fasts Ramadan out of faith and hope of reward will have his previous sins forgiven.
+
+Hadith: 12
+Book: Fasting
+Narrator: Sahl ibn Sad
+Theme: Reward of fasting
+Summary: There is a gate in Paradise called Ar-Rayyan through which only those who fasted will enter on the Day of Resurrection. When the last of them has entered, it is closed.
+
+Hadith: 13
+Book: Pilgrimage
+Narrator: Abu Hurayrah
+Theme: Hajj, purification
+Summary: Whoever performs the pilgrimage without obscenity or wrongdoing returns free of sin, as on the day his mother bore him.
+
+Hadith: 14
+Book: Sales and Trade
+Narrator: Hakim ibn Hizam
+Theme: Honesty in trade
+Summary: Both parties in a transaction may reconsider before they part. If they are truthful and disclose defects, their transaction is blessed; if they conceal and lie, the blessing of their transaction is erased.
+
+Hadith: 15
+Book: Manners
+Narrator: Abu Hurayrah
+Theme: Speech, hospitality
+Summary: Whoever believes in God and the Last Day should speak well or remain silent, should be generous to his neighbour, and should be generous to his guest.
+
+Hadith: 16
+Book: Manners
+Narrator: Abu Hurayrah
+Theme: Anger, self-control
+Summary: The strong person is not the one who overcomes others in wrestling, but the one who controls himself when angry.
+
+Hadith: 17
+Book: Manners
+Narrator: Abdullah ibn Amr
+Theme: Kindness to parents
+Summary: God's pleasure lies in the pleasure of the parent, and God's displeasure lies in the displeasure of the parent.
+
+Hadith: 18
+Book: Medicine
+Narrator: Abu Hurayrah
+Theme: Healing, illness
+Summary: God has sent down no illness without also sending down a cure for it.
+
+Hadith: 19
+Book: Oppression
+Narrator: Anas ibn Malik
+Theme: Justice, helping others
+Summary: Help your brother whether he is the oppressor or the oppressed. When asked how one helps an oppressor, the answer was: by restraining him from oppression.
+
+Hadith: 20
+Book: Softening of Hearts
+Narrator: Ibn Abbas
+Theme: Health, free time
+Summary: Two blessings that many people fail to make use of are good health and free time.
+
+Hadith: 21
+Book: Softening of Hearts
+Narrator: Abu Hurayrah
+Theme: Mercy of God
+Summary: God divided mercy into one hundred parts, keeping ninety-nine with Himself and sending one part to earth, from which all creatures show compassion to one another, so that even an animal lifts its hoof away from its young.
+
+Hadith: 22
+Book: Good Manners
+Narrator: Aisha
+Theme: Gentleness
+Summary: Gentleness beautifies whatever it accompanies, and its absence leaves whatever it is removed from disfigured.
+
+Hadith: 23
+Book: Companions
+Narrator: Abu Hurayrah
+Theme: Speech and its consequences
+Summary: A person may utter a word pleasing to God without weighing it, and be raised in rank; and may utter a word displeasing to God without weighing it, and fall far because of it.
+
+Hadith: 24
+Book: Marriage
+Narrator: Abu Hurayrah
+Theme: Choosing a spouse
+Summary: A woman is married for four things: her wealth, her lineage, her beauty, and her religion. Choose the one with religion and you will prosper.
+
+Hadith: 25
+Book: Oaths and Vows
+Narrator: Abu Hurayrah
+Theme: Truthfulness
+Summary: Signs of hypocrisy are three: when he speaks he lies, when he promises he breaks it, and when he is trusted he betrays the trust.
+
+
+Story: 1
+Title: UBUNTU — "Ben, biz olduğumuz zaman benim"
+Source: Yaşanmış küçük öyküler, No. 8
+Language: Türkçe
+Theme: Dayanışma, paylaşmak, birlik olmak
+Text: Bir zaman bir bilim adamı Afrika'da görev yapıyormuş. Oranın yerli çocuklarına oyun oynamayı teklif etmiş. Bir ağacın altına meyveler koymuş ve ağaca ilk ulaşan kişinin ödül olarak bütün meyveleri yiyebileceğini söylemiş. Çocukları sıraya dizmiş ve yarışı başlatmış. Fakat bilim adamının beklemediği bir olay olmuş: çocuklar el ele tutuşmuş ve beraber koşmaya başlamışlar. Adam bu duruma çok şaşırmış ve çocuklara neden böyle yaptıklarını sormuş. Çocuklar "Bu UBUNTU'dur" demişler. "Diğerleri mutsuz iken bir kişi nasıl meyveleri yiyebilir ki? Biz ubuntu yaparak hepimiz yedik. Ubuntu bizim dilimizde 'ben, biz olduğumuz zaman benim' demektir."
+
+Story: 2
+Title: Ubuntu kavramı
+Source: Yaşanmış küçük öyküler, No. 8
+Language: Türkçe
+Theme: Ubuntu felsefesi, Afrika kültürü
+Text: Ubuntu, Afrika kültüründe insanların birbirlerine bağlılık ve ilişkilerine odaklanan ahlaki ve insani bir anlayıştır. Sözcük Güney Afrika'daki Bantu dillerinden gelmektedir. Temel fikri şudur: bir insanın varlığı ve iyiliği, topluluğun varlığı ve iyiliğinden ayrılamaz.
+
+Story: 3
+Title: Paylaşmak üzerine
+Source: Yaşanmış küçük öyküler, No. 8
+Language: Türkçe
+Theme: Komşuluk, paylaşmak, ekmek
+Text: Bizde ise "komşusu açken tok yatan bizden değildir" anlayışı vardır. Büyüklerimiz ne güzel söylemişler: "Eğer tadını bilirseniz, ekmeği paylaşmak ekmekten daha lezzetlidir." Tüm güzelliklerimizi paylaşmak ve güzel bir hayat yaşamak dileğiyle.

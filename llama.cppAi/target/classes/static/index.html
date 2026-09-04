@@ -1,0 +1,860 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hadith Assistant — llama.cpp</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+          margin: 0;
+          font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+          background: #eef1f5;
+          color: #22303f;
+          display: flex;
+          justify-content: center;
+          padding: 20px;
+        }
+        .app {
+          width: 100%;
+          max-width: 780px;
+          background: #fff;
+          border-radius: 12px;
+          border: 1px solid #dde3ea;
+          display: flex;
+          flex-direction: column;
+          height: 90vh;
+          overflow: hidden;
+          box-shadow: 0 2px 12px rgba(20,35,55,.06);
+        }
+
+        header {
+          padding: 15px 20px;
+          background: #16283d;
+          color: #fff;
+          display: flex;
+          align-items: center;
+          gap: 14px;
+        }
+        header .titles { flex: 1; }
+        header h1 { margin: 0; font-size: 17px; font-weight: 600; }
+        header .sub {
+          font-size: 12px; color: #93a7bd; margin-top: 3px;
+          display: flex; align-items: center; gap: 6px;
+        }
+        .dot { width: 7px; height: 7px; border-radius: 50%; background: #6b7c8f; }
+        .dot.ok  { background: #3fb27f; }
+        .dot.bad { background: #d9534f; }
+
+        /* переключатель голосового режима */
+        .wake-toggle {
+          display: flex; align-items: center; gap: 9px;
+          font-size: 12px; color: #93a7bd; cursor: pointer;
+          user-select: none; white-space: nowrap;
+        }
+        .switch {
+          width: 38px; height: 21px; border-radius: 11px;
+          background: #35495f; position: relative; transition: .2s;
+          flex-shrink: 0;
+        }
+        .switch::after {
+          content: ''; position: absolute; top: 3px; left: 3px;
+          width: 15px; height: 15px; border-radius: 50%;
+          background: #93a7bd; transition: .2s;
+        }
+        .wake-toggle.on .switch { background: #3fb27f; }
+        .wake-toggle.on .switch::after { left: 20px; background: #fff; }
+        .wake-toggle.on { color: #cfe3d8; }
+
+        .modes {
+          display: flex; align-items: center; gap: 6px;
+          padding: 10px 14px; border-bottom: 1px solid #e4e9ef; background: #f8fafb;
+        }
+        .modes button {
+          padding: 6px 14px; font-size: 12.5px; border: 1px solid #d3dae2;
+          background: #fff; border-radius: 20px; cursor: pointer;
+          color: #55677a; transition: .15s;
+        }
+        .modes button:hover { border-color: #16283d; }
+        .modes button.active { background: #16283d; color: #fff; border-color: #16283d; }
+        .modes .spacer { flex: 1; }
+        .modes .note { font-size: 11.5px; color: #9aa8b6; }
+
+        /* полоса состояния голосового режима */
+        .wakebar {
+          display: none; align-items: center; gap: 11px;
+          padding: 9px 16px; font-size: 12.5px;
+          border-bottom: 1px solid #e4e9ef;
+          background: #f4f8f6; color: #4a7a63;
+        }
+        .wakebar.on { display: flex; }
+        .wakebar.armed { background: #fef6e7; color: #8a6d2f; }
+        .wakebar.busy  { background: #eef2f7; color: #55677a; }
+        .wakebar .ring {
+          width: 9px; height: 9px; border-radius: 50%;
+          background: currentColor; animation: breathe 2.2s infinite;
+        }
+        .wakebar.armed .ring { animation: blink .8s infinite; }
+        @keyframes breathe { 50% { opacity: .3; } }
+        @keyframes blink   { 50% { opacity: .15; } }
+        .wakebar .spacer { flex: 1; }
+        .levels { display: flex; gap: 2px; align-items: flex-end; height: 16px; }
+        .levels i {
+          display: block; width: 3px; background: currentColor;
+          border-radius: 2px; height: 3px; transition: height .07s;
+        }
+
+        .messages {
+          flex: 1; overflow-y: auto; padding: 18px 16px;
+          display: flex; flex-direction: column; gap: 12px;
+        }
+        .msg {
+          max-width: 82%; padding: 11px 15px; border-radius: 14px;
+          font-size: 14px; line-height: 1.55; white-space: pre-wrap; word-wrap: break-word;
+        }
+        .msg.user {
+          align-self: flex-end; background: #16283d; color: #fff;
+          border-bottom-right-radius: 3px;
+        }
+        .msg.user .mic-tag {
+          display: block; font-size: 10.5px; color: #8ba3c0;
+          margin-bottom: 4px; letter-spacing: .3px;
+        }
+        .msg.bot {
+          align-self: flex-start; background: #f0f3f7; border-bottom-left-radius: 3px;
+        }
+        .msg.err { align-self: flex-start; background: #fdeaea; color: #b23c3c; }
+        .msg.skip {
+          align-self: center; background: none; color: #b4bfca;
+          font-size: 11.5px; padding: 2px; font-style: italic;
+        }
+
+        .hit {
+          align-self: stretch; width: 100%; border: 1px solid #e4e9ef;
+          border-radius: 10px; overflow: hidden; font-size: 13px;
+        }
+        .hit-head {
+          display: flex; align-items: center; gap: 10px;
+          padding: 8px 12px; background: #f8fafb; border-bottom: 1px solid #e4e9ef;
+        }
+        .hit-num { font-size: 11px; color: #8996a5; text-transform: uppercase; letter-spacing: .5px; }
+        .bar { flex: 1; height: 6px; background: #e4e9ef; border-radius: 3px; overflow: hidden; }
+        .bar span { display: block; height: 100%; border-radius: 3px; background: #3fb27f; }
+        .bar span.weak { background: #d9a441; }
+        .bar span.poor { background: #cf6b64; }
+        .score { font-family: Consolas, monospace; font-size: 12px; min-width: 42px; text-align: right; color: #55677a; }
+        .pass { font-size: 10.5px; padding: 2px 7px; border-radius: 10px; font-weight: 600; }
+        .pass.yes { background: #e3f4ec; color: #2b7d5b; }
+        .pass.no  { background: #f2f4f6; color: #94a2b1; }
+        .hit-body {
+          padding: 10px 12px; font-family: Consolas, monospace;
+          font-size: 12.5px; line-height: 1.5; white-space: pre-wrap; color: #3b4a5a;
+        }
+
+        .typing { align-self: flex-start; color: #7f8c9a; font-size: 13px; font-style: italic; padding: 2px 15px; }
+
+        .empty {
+          margin: auto; text-align: center; color: #9aa8b6;
+          font-size: 13.5px; line-height: 1.7; max-width: 460px;
+        }
+        .empty b { color: #55677a; display: block; margin-bottom: 6px; font-size: 14px; }
+        .empty code {
+          background: #f0f3f7; padding: 2px 7px; border-radius: 5px;
+          font-size: 12.5px; color: #3b4a5a;
+        }
+        .chip {
+          display: inline-block; margin: 4px 3px; padding: 5px 11px;
+          background: #f0f3f7; border: 1px solid #dde3ea; border-radius: 14px;
+          font-size: 12.5px; color: #55677a; cursor: pointer;
+        }
+        .chip:hover { background: #e3e9f0; }
+
+        .hint { font-size: 12px; color: #8996a5; padding: 0 18px 10px; line-height: 1.5; }
+
+        .inputbar {
+          display: flex; gap: 8px; padding: 14px;
+          border-top: 1px solid #e4e9ef; align-items: center;
+        }
+        .inputbar input[type=text] {
+          flex: 1; padding: 11px 15px; border: 1px solid #d3dae2;
+          border-radius: 9px; font-size: 14px; outline: none;
+        }
+        .inputbar input[type=text]:focus { border-color: #16283d; }
+        .inputbar button {
+          padding: 11px 22px; border: none; border-radius: 9px;
+          background: #16283d; color: #fff; font-size: 14px; cursor: pointer;
+        }
+        .inputbar button:disabled { opacity: .45; cursor: not-allowed; }
+        .inputbar button.send:hover:not(:disabled) { background: #23405f; }
+
+        .mic {
+          width: 44px; height: 44px; padding: 0 !important;
+          border-radius: 50% !important; background: #f0f3f7 !important;
+          border: 1px solid #d3dae2 !important;
+          display: flex; align-items: center; justify-content: center;
+          flex-shrink: 0; transition: .15s;
+        }
+        .mic svg { width: 19px; height: 19px; fill: #55677a; }
+        .mic:hover:not(:disabled) { background: #e3e9f0 !important; }
+        .mic.recording {
+          background: #d9534f !important; border-color: #d9534f !important;
+          animation: pulse 1.4s infinite;
+        }
+        .mic.recording svg { fill: #fff; }
+        @keyframes pulse {
+          0%   { box-shadow: 0 0 0 0 rgba(217,83,79,.5); }
+          70%  { box-shadow: 0 0 0 12px rgba(217,83,79,0); }
+          100% { box-shadow: 0 0 0 0 rgba(217,83,79,0); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app">
+    <header>
+        <div class="titles">
+            <h1>Hadith Assistant</h1>
+            <div class="sub">
+                <span class="dot" id="statusDot"></span>
+                <span id="statusText">проверка соединения...</span>
+            </div>
+        </div>
+        <div class="wake-toggle" id="wakeToggle" title="Постоянное прослушивание фразы-активатора">
+            <span class="switch"></span>
+            <span>Голосовой режим</span>
+        </div>
+    </header>
+
+    <div class="modes">
+        <button data-mode="ask" class="active">Чат</button>
+        <button data-mode="search">Поиск · отладка</button>
+        <span class="spacer"></span>
+        <span class="note">порог: <b id="thr">0.60</b></span>
+    </div>
+
+    <div class="wakebar" id="wakebar">
+        <span class="ring"></span>
+        <span id="wakeState">жду активатор</span>
+        <span class="spacer"></span>
+        <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:11.5px;opacity:.85">
+            <input type="checkbox" id="requireWake" checked style="margin:0">
+            требовать активатор
+        </label>
+        <span class="levels" id="levels"></span>
+    </div>
+
+    <div class="messages" id="messages">
+        <div class="empty" id="empty">
+            <b>Спрашивай голосом или текстом</b>
+            Включи <b style="display:inline">Голосовой режим</b> вверху справа и скажи
+            <code id="wakeHint">Jarvis</code>, а следом — свой вопрос.<br>
+            Можно и одной фразой: «Jarvis, what is said about intention».
+            <div style="margin-top:12px">
+                <span class="chip">What does Islam say about intention?</span>
+                <span class="chip">How should I treat my neighbour?</span>
+                <span class="chip">Столица Франции?</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="hint" id="hint"></div>
+
+    <div class="inputbar">
+        <button class="mic" id="micBtn" title="Записать голос вручную">
+            <svg viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>
+        </button>
+        <input type="text" id="input" placeholder="Напиши вопрос или нажми микрофон..." autocomplete="off" />
+        <button class="send" id="send">Отправить</button>
+    </div>
+</div>
+
+<script>
+    // ======================= НАСТРОЙКИ =======================
+
+    const THRESHOLD = 0.6;          // должен совпадать с similarityThreshold в контроллере
+
+    // Как активатор показывается в интерфейсе
+    const WAKE_LABEL = 'Jarvis';
+
+    // Эталонные написания. Точное совпадение не требуется —
+    // работает нечёткое сравнение, поэтому список короткий.
+    // «carvis» — как Whisper пишет это имя в турецком режиме.
+    const WAKE_TARGETS = ['jarvis', 'carvis', 'джарвис'];
+
+    // Максимальное «расстояние» между услышанным и эталоном:
+    // 2 = допускаем две ошибки (замена/вставка/пропуск буквы).
+    const WAKE_TOLERANCE = 2;
+
+    // Whisper обучался на субтитрах с YouTube и на тишине выдаёт
+    // эти фразы «из ниоткуда». Отбрасываем их, чтобы не засорять чат.
+    const HALLUCINATIONS = [
+        'thank you', 'thanks for watching', 'thanks for watching!',
+        'bye', 'bye bye', 'you', 'subscribe', 'please subscribe',
+        'see you next time', 'i am sitting', "i'm sitting",
+        'transcription by', 'subtitles by', 'amara org', 'мвк',
+        'продолжение следует', 'спасибо за просмотр', 'редактор субтитров'
+    ];
+
+    // Требовать активатор? false — любая произнесённая фраза уходит как вопрос.
+    // Удобно для проверки, что распознавание вообще работает.
+    let REQUIRE_WAKE = true;
+
+    const VAD = {
+        speakLevel:   0.020,  // громкость, с которой считаем что началась речь
+        silenceMs:    900,    // сколько тишины ждать, чтобы считать фразу законченной
+        minSpeechMs:  300,    // короче — считаем случайным шумом, не отправляем
+        maxSpeechMs:  15000,  // страховка от бесконечной записи
+        armedTimeout: 12000,  // сколько ждать вопрос после активатора
+        prerollMs:    1000,   // сколько аудио брать ДО момента срабатывания
+        postrollMs:   500,    // и сколько ПОСЛЕ — чтобы не обрезать хвост фразы
+        sliceMs:      200,    // размер куска в кольцевом буфере
+        padToMs:      2000    // минимальная длина отправляемого фрагмента
+    };
+
+    // ======================= ЭЛЕМЕНТЫ =======================
+
+    const messagesEl = document.getElementById('messages');
+    const emptyEl    = document.getElementById('empty');
+    const inputEl    = document.getElementById('input');
+    const sendBtn    = document.getElementById('send');
+    const micBtn     = document.getElementById('micBtn');
+    const hintEl     = document.getElementById('hint');
+    const statusDot  = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const wakeToggle = document.getElementById('wakeToggle');
+    const wakebar    = document.getElementById('wakebar');
+    const wakeState  = document.getElementById('wakeState');
+    const levelsEl   = document.getElementById('levels');
+
+    document.getElementById('thr').textContent = THRESHOLD.toFixed(2);
+
+    const requireWakeBox = document.getElementById('requireWake');
+    requireWakeBox.addEventListener('change', () => {
+      REQUIRE_WAKE = requireWakeBox.checked;
+      if (wakeOn) {
+        armed = false;
+        setWakeState(REQUIRE_WAKE ? `жду фразу «${WAKE_LABEL}»` : 'слушаю любую фразу');
+      }
+    });
+
+    for (let i = 0; i < 6; i++) levelsEl.appendChild(document.createElement('i'));
+    const bars = levelsEl.querySelectorAll('i');
+
+    let mode = 'ask';
+
+    const hints = {
+      ask:    'Хадисы подмешиваются автоматически — только если сходство выше порога.',
+      search: 'Показывает 5 ближайших фрагментов со шкалой сходства, без обращения к модели.'
+    };
+    hintEl.textContent = hints.ask;
+
+    document.querySelectorAll('.modes button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.modes button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        mode = btn.dataset.mode;
+        hintEl.textContent = hints[mode];
+      });
+    });
+
+    document.querySelectorAll('.chip').forEach(chip => {
+      chip.addEventListener('click', () => { inputEl.value = chip.textContent; send(); });
+    });
+
+    // ======================= ВЫВОД =======================
+
+    function clearEmpty() { if (emptyEl && emptyEl.parentNode) emptyEl.remove(); }
+
+    // возвращает созданный элемент — нужно для потокового дописывания текста
+    function addMsg(text, cls, tag) {
+      clearEmpty();
+      const d = document.createElement('div');
+      d.className = 'msg ' + cls;
+      if (tag) {
+        const t = document.createElement('span');
+        t.className = 'mic-tag';
+        t.textContent = tag;
+        d.appendChild(t);
+        const body = document.createElement('span');
+        body.textContent = text;
+        d.appendChild(body);
+        d.__body = body;          // куда дописывать текст
+      } else {
+        d.textContent = text;
+        d.__body = d;
+      }
+      messagesEl.appendChild(d);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+      return d;
+    }
+
+    function addHit(hit, index) {
+      clearEmpty();
+      const score = hit.score ?? 0;
+      const passes = score >= THRESHOLD;
+      const pct = Math.max(0, Math.min(100, score * 100));
+      let barClass = '';
+      if (score < THRESHOLD) barClass = 'weak';
+      if (score < THRESHOLD - 0.15) barClass = 'poor';
+
+      const box = document.createElement('div');
+      box.className = 'hit';
+      box.innerHTML = `
+        <div class="hit-head">
+          <span class="hit-num">#${index + 1}</span>
+          <span class="bar"><span class="${barClass}" style="width:${pct}%"></span></span>
+          <span class="score">${score.toFixed(3)}</span>
+          <span class="pass ${passes ? 'yes' : 'no'}">${passes ? 'в контекст' : 'отсечён'}</span>
+        </div>
+        <div class="hit-body"></div>`;
+      box.querySelector('.hit-body').textContent = hit.text;
+      messagesEl.appendChild(box);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function statusMsg(text) {
+      clearEmpty();
+      let d = document.getElementById('typing');
+      if (!d) {
+        d = document.createElement('div');
+        d.className = 'typing';
+        d.id = 'typing';
+        messagesEl.appendChild(d);
+      }
+      d.textContent = text;
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function statusOff() {
+      const d = document.getElementById('typing');
+      if (d) d.remove();
+    }
+
+    // ======================= ОТПРАВКА ВОПРОСА =======================
+
+    async function send(tag) {
+      const text = inputEl.value.trim();
+      if (!text) return;
+
+      addMsg(text, 'user', tag);
+      inputEl.value = '';
+      sendBtn.disabled = true;
+      statusMsg(mode === 'search' ? 'ищу...' : 'модель думает...');
+
+      try {
+        const res = await fetch(`/api/${mode}/${encodeURIComponent(text)}`);
+
+        if (!res.ok) {
+          statusOff();
+          addMsg(`Ошибка сервера: ${res.status}.`, 'err');
+          return;
+        }
+
+        if (mode === 'search') {
+          statusOff();
+          const hits = await res.json();
+          if (!hits.length) addMsg('Ничего не найдено.', 'bot');
+          else hits.forEach(addHit);
+        } else {
+          // Потоковое чтение: текст дописывается по мере генерации,
+          // а не показывается целиком через 40 секунд.
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder('utf-8');
+          let acc = '';
+          let bubble = null;
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            // stream:true — символ может быть разрезан между чанками,
+            // декодер удержит хвост до следующего куска
+            acc += decoder.decode(value, { stream: true });
+
+            // «модель думает...» держим до первого кусочка текста:
+            // пока идёт обработка промпта, отвечать ещё нечем
+            if (!bubble && acc.trim()) {
+              statusOff();
+              bubble = addMsg('', 'bot');
+            }
+            if (bubble) {
+              bubble.__body.textContent = acc;
+              messagesEl.scrollTop = messagesEl.scrollHeight;
+            }
+          }
+
+          statusOff();
+          if (!bubble) addMsg('(пустой ответ)', 'bot');
+        }
+      } catch (e) {
+        statusOff();
+        addMsg('Нет связи с backend. Проверь, что Spring Boot работает на :9090.', 'err');
+        console.error(e);
+      } finally {
+        sendBtn.disabled = false;
+      }
+    }
+
+    sendBtn.addEventListener('click', () => send(null));
+    inputEl.addEventListener('keydown', e => { if (e.key === 'Enter') send(null); });
+
+    // ======================= РАСПОЗНАВАНИЕ =======================
+
+    async function transcribe(blob) {
+      const form = new FormData();
+      // имя файла обязательно: Whisper определяет формат по расширению
+      form.append('file', blob, 'speech.webm');
+      const res = await fetch('/api/stt', { method: 'POST', body: form });
+      if (!res.ok) throw new Error('STT ' + res.status);
+      return (await res.text()).trim();
+    }
+
+    // чистим служебные пометки Whisper: [BLANK_AUDIO], *cough*, (music)
+    function clean(text) {
+      return text
+        .replace(/\[.*?]/g, '')
+        .replace(/\*.*?\*/g, '')
+        .replace(/\(.*?\)/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    // Расстояние Левенштейна: сколько правок нужно, чтобы превратить a в b.
+    // «shemsatin» → «shamsettin» = 3 правки.
+    function levenshtein(a, b) {
+      const m = a.length, n = b.length;
+      let prev = Array.from({ length: n + 1 }, (_, j) => j);
+      let cur = new Array(n + 1);
+      for (let i = 1; i <= m; i++) {
+        cur[0] = i;
+        for (let j = 1; j <= n; j++) {
+          cur[j] = Math.min(
+            prev[j] + 1,                                   // удаление
+            cur[j - 1] + 1,                                // вставка
+            prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)  // замена
+          );
+        }
+        [prev, cur] = [cur, prev];
+      }
+      return prev[n];
+    }
+
+    function normalize(text) {
+      return text.toLowerCase()
+                 .replace(/[.,!?;:—\-'"«»]/g, ' ')
+                 .replace(/\s+/g, ' ')
+                 .trim();
+    }
+
+    // Похоже ли слово (или пара слов) на активатор?
+    function looksLikeWake(chunk) {
+      const c = chunk.replace(/\s/g, '');
+      if (c.length < 5) return false;   // слишком коротко, чтобы быть именем
+      return WAKE_TARGETS.some(t => levenshtein(c, t) <= WAKE_TOLERANCE);
+    }
+
+    // Ищем активатор в начале фразы; возвращаем остаток после него, либо null.
+    // Проверяем и отдельные слова, и пары соседних — Whisper часто
+    // разбивает имя надвое («Shem Satin»).
+    function matchWake(text) {
+      const words = normalize(text).split(' ').filter(Boolean);
+
+      // активатор ищем только в первых трёх словах — дальше это уже вопрос
+      const limit = Math.min(words.length, 3);
+
+      for (let i = 0; i < limit; i++) {
+        // пара слов: «shem satin»
+        if (i + 1 < words.length && looksLikeWake(words[i] + words[i + 1])) {
+          return words.slice(i + 2).join(' ').trim();
+        }
+        // одно слово: «shamsettin»
+        if (looksLikeWake(words[i])) {
+          return words.slice(i + 1).join(' ').trim();
+        }
+      }
+      return null;
+    }
+
+    // Похоже на галлюцинацию Whisper на тишине?
+    function isHallucination(text) {
+      const n = normalize(text).replace(/[^a-zа-я ]/g, '').trim();
+      if (!n) return true;
+      return HALLUCINATIONS.some(h => n === h || n.startsWith(h + ' ') || n.endsWith(' ' + h));
+    }
+
+    // ======================= РУЧНАЯ ЗАПИСЬ (кнопка) =======================
+
+    let manualRec = null, manualChunks = [], manualStream = null;
+
+    micBtn.addEventListener('click', async () => {
+      if (wakeOn) {
+        addMsg('Выключи голосовой режим, чтобы записывать вручную.', 'err');
+        return;
+      }
+      if (manualRec && manualRec.state === 'recording') {
+        manualRec.stop();
+        return;
+      }
+      try {
+        manualStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (e) {
+        addMsg('Нет доступа к микрофону.', 'err');
+        return;
+      }
+      manualChunks = [];
+      manualRec = new MediaRecorder(manualStream);
+      manualRec.ondataavailable = e => { if (e.data.size) manualChunks.push(e.data); };
+      manualRec.onstop = async () => {
+        manualStream.getTracks().forEach(t => t.stop());
+        micBtn.classList.remove('recording');
+        if (!manualChunks.length) return;
+        statusMsg('распознаю речь...');
+        try {
+          const text = clean(await transcribe(new Blob(manualChunks, { type: 'audio/webm' })));
+          statusOff();
+          if (!text) { addMsg('Ничего не распознано.', 'err'); return; }
+          inputEl.value = text;
+          send('🎙 голосовое');
+        } catch (e) {
+          statusOff();
+          addMsg('Ошибка распознавания.', 'err');
+          console.error(e);
+        }
+      };
+      manualRec.start();
+      micBtn.classList.add('recording');
+    });
+
+    // ======================= ГОЛОСОВОЙ РЕЖИМ (wake word) =======================
+
+    let wakeOn = false;
+    let wakeStream = null, wakeCtx = null, wakeAnalyser = null, wakeRaf = null;
+    let speaking = false, speechStart = 0, lastLoud = 0;
+    let armed = false, armedUntil = 0;   // armed = активатор услышан, ждём вопрос
+    let processing = false;              // идёт распознавание — не начинаем новую запись
+
+    // Кольцевой буфер непрерывной записи.
+    // Первый кусок содержит заголовок webm — его нужно хранить всегда,
+    // иначе последующие куски невозможно декодировать.
+    let ringRec = null;
+    let headerChunk = null;
+    let ring = [];                       // [{blob, t}] — кусок и время его получения
+
+    function setWakeState(text, cls) {
+      wakeState.textContent = text;
+      wakebar.classList.remove('armed', 'busy');
+      if (cls) wakebar.classList.add(cls);
+    }
+
+    wakeToggle.addEventListener('click', () => wakeOn ? stopWake() : startWake());
+
+    async function startWake() {
+      try {
+        wakeStream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+        });
+      } catch (e) {
+        addMsg('Нет доступа к микрофону. Разреши его в настройках браузера.', 'err');
+        console.error(e);
+        return;
+      }
+
+      wakeOn = true;
+      armed = false;
+      wakeToggle.classList.add('on');
+      wakebar.classList.add('on');
+      setWakeState(REQUIRE_WAKE ? `жду фразу «${WAKE_LABEL}»` : 'слушаю любую фразу');
+
+      wakeCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const src = wakeCtx.createMediaStreamSource(wakeStream);
+      wakeAnalyser = wakeCtx.createAnalyser();
+      wakeAnalyser.fftSize = 512;
+      src.connect(wakeAnalyser);
+
+      // Непрерывная запись мелкими кусками.
+      // Так у нас всегда есть аудио ДО момента, когда сработал детектор —
+      // иначе терялось начало фразы (как раз слово «hey»).
+      headerChunk = null;
+      ring = [];
+      ringRec = new MediaRecorder(wakeStream);
+      ringRec.ondataavailable = e => {
+        if (!e.data.size) return;
+        if (!headerChunk) { headerChunk = e.data; return; }
+        ring.push({ blob: e.data, t: Date.now() });
+        // держим последние 30 секунд
+        const cutoff = Date.now() - 30000;
+        while (ring.length && ring[0].t < cutoff) ring.shift();
+      };
+      ringRec.start(VAD.sliceMs);
+
+      const buf = new Float32Array(wakeAnalyser.fftSize);
+      loop();
+
+      function loop() {
+        if (!wakeOn) return;
+        wakeAnalyser.getFloatTimeDomainData(buf);
+
+        // среднеквадратичная громкость
+        let sum = 0;
+        for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+        const rms = Math.sqrt(sum / buf.length);
+
+        // индикатор
+        const h = Math.min(16, Math.max(3, rms * 260));
+        bars.forEach((b, i) => {
+          b.style.height = Math.max(3, h * (0.55 + 0.45 * Math.sin(Date.now() / 90 + i))) + 'px';
+        });
+
+        const now = Date.now();
+
+        // сброс режима ожидания вопроса по таймауту
+        if (armed && now > armedUntil) {
+          armed = false;
+          setWakeState(`жду фразу «${WAKE_LABEL}»`);
+        }
+
+        if (!processing) {
+          if (rms > VAD.speakLevel) {
+            lastLoud = now;
+            if (!speaking) beginUtterance(now);
+          } else if (speaking && now - lastLoud > VAD.silenceMs) {
+            endUtterance(now);
+          }
+          if (speaking && now - speechStart > VAD.maxSpeechMs) endUtterance(now);
+        }
+
+        wakeRaf = requestAnimationFrame(loop);
+      }
+    }
+
+    function beginUtterance(now) {
+      speaking = true;
+      speechStart = now;
+      // ничего не запускаем — запись уже идёт непрерывно
+    }
+
+    function endUtterance(now) {
+      speaking = false;
+      if (now - speechStart < VAD.minSpeechMs) return;  // шум, не отправляем
+
+      // Даём буферу дописать хвост фразы, потом собираем фрагмент.
+      // Без этой паузы последние слова обрезаются на полуслове.
+      setTimeout(() => collectAndSend(speechStart), VAD.postrollMs);
+    }
+
+    function collectAndSend(startedAt) {
+      // Whisper плохо работает с очень короткими записями — он рассчитан
+      // на длинные фрагменты. Поэтому для коротких фраз («Jarvis»)
+      // расширяем окно назад, чтобы набрать хотя бы padToMs аудио.
+      let from = startedAt - VAD.prerollMs;
+      const now = Date.now();
+      if (now - from < VAD.padToMs) from = now - VAD.padToMs;
+
+      const parts = ring.filter(c => c.t >= from).map(c => c.blob);
+      if (!parts.length) return;
+
+      handleUtterance(new Blob([headerChunk, ...parts], { type: 'audio/webm' }));
+    }
+
+    async function handleUtterance(blob) {
+      processing = true;
+      setWakeState('распознаю...', 'busy');
+
+      let text = '';
+      try {
+        text = clean(await transcribe(blob));
+      } catch (e) {
+        console.error(e);
+      }
+
+      processing = false;
+
+      // пусто или выдуманная Whisper фраза на тишине — молча игнорируем
+      if (!text || isHallucination(text)) {
+        if (text) console.log('галлюцинация Whisper, отброшено:', text);
+        setWakeState(armed ? 'слушаю вопрос...' : `жду фразу «${WAKE_LABEL}»`, armed ? 'armed' : null);
+        return;
+      }
+
+      if (armed) {
+        // активатор уже был — эта фраза и есть вопрос
+        armed = false;
+        setWakeState(`жду фразу «${WAKE_LABEL}»`);
+        inputEl.value = text;
+        send('🎙 голосовое');
+        return;
+      }
+
+      // режим без активатора — любая фраза считается вопросом
+      if (!REQUIRE_WAKE) {
+        inputEl.value = text;
+        send('🎙 голосовое');
+        setWakeState('слушаю');
+        return;
+      }
+
+      const rest = matchWake(text);
+
+      if (rest === null) {
+        // активатора нет — игнорируем, но показываем что услышали
+        console.log('пропущено (нет активатора):', text);
+        addMsg('пропущено: «' + text + '»', 'skip');
+        setWakeState(`жду фразу «${WAKE_LABEL}»`);
+        return;
+      }
+
+      if (rest.length > 1) {
+        // «Jarvis, what is intention» — вопрос в той же фразе
+        inputEl.value = rest;
+        send('🎙 голосовое');
+        setWakeState(`жду фразу «${WAKE_LABEL}»`);
+      } else {
+        // сказали только активатор — ждём следующую фразу
+        armed = true;
+        armedUntil = Date.now() + VAD.armedTimeout;
+        setWakeState('да, слушаю вопрос...', 'armed');
+      }
+    }
+
+    function stopWake() {
+      wakeOn = false;
+      armed = false;
+      speaking = false;
+      processing = false;
+      if (wakeRaf) cancelAnimationFrame(wakeRaf);
+      if (ringRec && ringRec.state === 'recording') ringRec.stop();
+      if (wakeCtx) wakeCtx.close();
+      if (wakeStream) wakeStream.getTracks().forEach(t => t.stop());
+      wakeCtx = null; wakeStream = null; wakeAnalyser = null;
+      ringRec = null; ring = []; headerChunk = null;
+      wakeToggle.classList.remove('on');
+      wakebar.classList.remove('on', 'armed', 'busy');
+      bars.forEach(b => b.style.height = '3px');
+    }
+
+    // микрофон отпускаем, когда вкладка закрывается
+    window.addEventListener('beforeunload', stopWake);
+
+    // ======================= ПРОВЕРКА BACKEND =======================
+
+    (async () => {
+      try {
+        const r = await fetch('/api/search/test');
+        if (r.ok) {
+          statusDot.className = 'dot ok';
+          statusText.textContent = 'подключено · llama.cpp + whisper.cpp';
+        } else {
+          statusDot.className = 'dot bad';
+          statusText.textContent = 'backend отвечает с ошибкой ' + r.status;
+        }
+      } catch {
+        statusDot.className = 'dot bad';
+        statusText.textContent = 'нет связи с backend';
+      }
+    })();
+
+    inputEl.focus();
+</script>
+
+</body>
+</html>
