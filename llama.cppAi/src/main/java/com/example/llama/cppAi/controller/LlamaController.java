@@ -1,6 +1,6 @@
 package com.example.llama.cppAi.controller;
 
-import com.openai.models.audio.AudioResponseFormat;
+import com.example.llama.cppAi.service.PiperTtsService;
 import org.springframework.ai.audio.transcription.AudioTranscriptionPrompt;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
@@ -10,14 +10,13 @@ import org.springframework.ai.document.Document;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.openai.OpenAiAudioSpeechModel;
 import org.springframework.ai.openai.OpenAiAudioTranscriptionModel;
-import org.springframework.ai.openai.OpenAiAudioTranscriptionOptions;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.http.MediaType;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
@@ -28,6 +27,8 @@ public class LlamaController {
 
     private ChatClient chatClient;
 
+    private PiperTtsService piperTts;
+
     @Autowired
     private EmbeddingModel embeddingModel;
 
@@ -37,19 +38,38 @@ public class LlamaController {
     @Autowired
     private OpenAiAudioTranscriptionModel aiModel;
 
-    @Autowired
-    private OpenAiAudioSpeechModel audioSpeech;
+
 
      ChatMemory chatMemory = MessageWindowChatMemory.builder().build();
 
-    public LlamaController(ChatClient.Builder builder, OpenAiAudioTranscriptionModel aiModel, OpenAiAudioSpeechModel audioSpeech){
+    public LlamaController(ChatClient.Builder builder, OpenAiAudioTranscriptionModel aiModel, PiperTtsService piperTts){
         this.chatClient=builder.defaultSystem("""
-                    Sen bir hadis asistanısın.
-                    HER ZAMAN Türkçe cevap ver.
-                    Cevapların en fazla 2-3 cümle olsun. Gereksiz açıklama yapma.
+                Sen çocuklara yardımcı olan bir robotsun. Adın Jarvis.
+                
+                BİLGİ KURALLARI
+                - Sadece sana verilen metne dayanarak cevap ver.
+                - Verilen metin soruyla ilgisizse ya da yetersizse şöyle de:
+                  "Bunu bilmiyorum, birlikte öğrenebiliriz." Tahmin yürütme.
+                - Hadis ya da ayet uydurma. Metinde ne yazıyorsa onu sade dille anlat.
+                - Soru dinle ilgili değilse normal ve kısa cevap ver, zorla hadise bağlama.
+                
+                NASIL KONUŞMALISIN
+                - Karşındaki yedi ile on iki yaş arası bir çocuk. Sıcak, sade ve kısa konuş.
+                - En fazla üç cümle.
+                - Zor bir kelime kullanman gerekirse hemen ardından basitçe açıkla.
+                
+                SESLİ OKUMA KURALLARI
+                Cevabın bir ses motoru tarafından okunacak. Bu yüzden:
+                - Yıldız, tire, madde imi, başlık, emoji kullanma. Düz cümle yaz.
+                - Nokta içeren kısaltma kullanma. "Hz." yerine "Hazreti", "vb." yerine
+                  "gibi şeyler", "örn." yerine "mesela" yaz.
+                - Arap harfleriyle yazma. Gerekirse Türkçe okunuşunu ver.
+                - Kaynağı sadece sorulduğunda söyle.
+                
+                Türkçe cevap ver.
                     """).defaultAdvisors(MessageChatMemoryAdvisor.builder(chatMemory).build()).build();
         this.aiModel=aiModel;
-        this.audioSpeech=audioSpeech;
+        this.piperTts=piperTts;
     }
 
     @GetMapping("api/chat/{text}")
@@ -130,9 +150,14 @@ public class LlamaController {
                 .getOutput();
     }
 
-    @PostMapping("api/tts")
-    public byte[] audioFromText(@RequestParam String text){
-        return audioSpeech.call(text);
+    @PostMapping(value = "/api/tts", produces = "audio/wav")
+    public ResponseEntity<byte[]> textToSpeech(@RequestParam String text) {
+        try {
+            return ResponseEntity.ok(piperTts.synthesize(text));
+        } catch (Exception e) {
+            // не роняем запрос — интерфейс просто останется без озвучки
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
 

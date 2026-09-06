@@ -2,605 +2,720 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Hadith Assistant — llama.cpp</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>Nuri — System Core</title>
     <style>
-        * { box-sizing: border-box; }
-        body {
-          margin: 0;
-          font-family: 'Segoe UI', Roboto, Arial, sans-serif;
-          background: #eef1f5;
-          color: #22303f;
-          display: flex;
-          justify-content: center;
-          padding: 20px;
-        }
-        .app {
-          width: 100%;
-          max-width: 780px;
-          background: #fff;
-          border-radius: 12px;
-          border: 1px solid #dde3ea;
-          display: flex;
-          flex-direction: column;
-          height: 90vh;
-          overflow: hidden;
-          box-shadow: 0 2px 12px rgba(20,35,55,.06);
+        /* ============================================================
+           DESIGN SYSTEM
+           ============================================================ */
+        :root {
+          --bg-dark:       #080A0F;
+          --panel-bg:      rgba(18, 24, 38, 0.65);
+
+          --primary:       #00E5FF;
+          --primary-glow:  rgba(0, 229, 255, 0.35);
+          --accent-purple: #7C4DFF;
+          --accent-pink:   #FF4081;
+          --state-idle:    #4A5568;
+
+          --text-main:     #F0F4F8;
+          --text-muted:    #64748B;
+          --border-subtle: rgba(255, 255, 255, 0.08);
+          --border-glow:   rgba(0, 229, 255, 0.25);
+
+          --core-size: 240px;
         }
 
-        header {
-          padding: 15px 20px;
-          background: #16283d;
-          color: #fff;
-          display: flex;
-          align-items: center;
-          gap: 14px;
-        }
-        header .titles { flex: 1; }
-        header h1 { margin: 0; font-size: 17px; font-weight: 600; }
-        header .sub {
-          font-size: 12px; color: #93a7bd; margin-top: 3px;
-          display: flex; align-items: center; gap: 6px;
-        }
-        .dot { width: 7px; height: 7px; border-radius: 50%; background: #6b7c8f; }
-        .dot.ok  { background: #3fb27f; }
-        .dot.bad { background: #d9534f; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
 
-        /* переключатель голосового режима */
-        .wake-toggle {
-          display: flex; align-items: center; gap: 9px;
-          font-size: 12px; color: #93a7bd; cursor: pointer;
-          user-select: none; white-space: nowrap;
+        html, body {
+          height: 100%; overflow: hidden;
+          background: var(--bg-dark);
+          color: var(--text-main);
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+          -webkit-tap-highlight-color: transparent;
+          user-select: none;
         }
-        .switch {
-          width: 38px; height: 21px; border-radius: 11px;
-          background: #35495f; position: relative; transition: .2s;
+
+        .stage {
+          position: relative; height: 100vh;
+          display: grid; grid-template-rows: 1fr auto;
+          background: radial-gradient(circle at 50% 40%, rgba(15, 23, 42, 0.8) 0%, var(--bg-dark) 80%);
+        }
+
+        .stage::before {
+          content: ''; position: absolute; inset: 0;
+          background-image: linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+                            linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+          background-size: 40px 40px;
+          pointer-events: none; opacity: 0.5;
+        }
+
+        /* ============================================================
+           NEURAL CORE
+           ============================================================ */
+        .core-wrap {
+          position: relative; display: flex; flex-direction: column;
+          align-items: center; justify-content: center;
+          padding: 20px; z-index: 2;
+        }
+
+        .core-container {
+          position: relative;
+          width: var(--core-size); height: var(--core-size);
+          display: flex; align-items: center; justify-content: center;
+          transition: transform .6s cubic-bezier(.16,1,.3,1);
+        }
+        .stage.has-answer .core-container { transform: scale(.65) translateY(-30px); }
+
+        .ring { position: absolute; border-radius: 50%; border: 1px solid transparent; pointer-events: none; }
+        .ring-outer {
+          inset: -15px;
+          border-top-color: var(--primary);
+          border-bottom-color: rgba(0, 229, 255, 0.15);
+          animation: rotateRing 12s linear infinite;
+          filter: drop-shadow(0 0 6px var(--primary-glow));
+        }
+        .ring-inner {
+          inset: -5px;
+          border-left-color: var(--accent-purple);
+          border-right-color: transparent;
+          animation: rotateRing 6s linear infinite reverse;
+          opacity: 0.7;
+        }
+        @keyframes rotateRing { to { transform: rotate(360deg); } }
+
+        .orb {
+          width: 140px; height: 140px; border-radius: 50%;
+          background: radial-gradient(circle at 35% 35%, #FFFFFF, var(--primary) 40%, rgba(0, 150, 255, 0.4) 75%, transparent 100%);
+          box-shadow: 0 0 40px var(--primary-glow), inset 0 0 15px rgba(255,255,255,0.8);
+          transition: background .5s ease, box-shadow .5s ease;
+          animation: pulseCore 3.5s ease-in-out infinite alternate;
+          will-change: transform;
+        }
+        @keyframes pulseCore {
+          0%   { transform: scale(0.96); opacity: 0.85; }
+          100% { transform: scale(1.04); opacity: 1; }
+        }
+
+        /* пока ядро управляется голосом, своя анимация выключается —
+           иначе два источника transform дерутся за один элемент */
+        .orb.voice-driven { animation: none; }
+
+        .stage[data-state="idle"] .orb {
+          background: radial-gradient(circle at 35% 35%, #94A3B8, var(--state-idle) 60%, transparent 100%);
+          box-shadow: 0 0 15px rgba(100, 116, 139, 0.2);
+          animation-duration: 6s;
+        }
+        .stage[data-state="thinking"] .ring-outer { animation-duration: 2s; border-top-color: var(--accent-purple); }
+        .stage[data-state="thinking"] .orb {
+          background: radial-gradient(circle at 35% 35%, #FFFFFF, var(--accent-purple) 50%, transparent 100%);
+          box-shadow: 0 0 50px rgba(124, 77, 255, 0.6);
+        }
+        .stage[data-state="speaking"] .orb {
+          background: radial-gradient(circle at 35% 35%, #FFFFFF, var(--accent-pink) 50%, var(--primary) 100%);
+          box-shadow: 0 0 60px rgba(255, 64, 129, 0.6);
+        }
+        .stage[data-state="armed"] .ring-outer { animation-duration: 4s; }
+
+        /* ============================================================
+           DATA FEED
+           ============================================================ */
+        .heard-text {
+          margin-top: 28px; text-align: center;
+          font-size: 13px; letter-spacing: 0.05em; text-transform: uppercase;
+          color: var(--text-muted); opacity: 0;
+          transition: opacity .4s ease; font-weight: 600;
+        }
+        .stage.has-answer .heard-text { opacity: 1; }
+
+        .response-card {
+          max-width: 580px; width: 92%; margin: 16px auto 0;
+          background: var(--panel-bg);
+          border: 1px solid var(--border-subtle);
+          backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+          border-radius: 12px; padding: 22px 26px;
+          box-shadow: 0 16px 36px rgba(0,0,0,0.5);
+          opacity: 0; transform: translateY(12px);
+          transition: all .4s cubic-bezier(.16,1,.3,1);
+          max-height: 0; overflow: hidden;
+        }
+        .stage.has-answer .response-card {
+          opacity: 1; transform: translateY(0); max-height: 42vh;
+          border-color: var(--border-glow);
+        }
+
+        .response-content {
+          font-size: 16px; line-height: 1.65; text-align: left;
+          color: var(--text-main); overflow-y: auto;
+          scrollbar-width: thin; scrollbar-color: var(--border-subtle) transparent;
+        }
+
+        .caret {
+          display: inline-block; width: 2px; height: 1em;
+          background: var(--primary); vertical-align: -2px; margin-left: 4px;
+          animation: caretBlink .7s infinite;
+        }
+        @keyframes caretBlink { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+
+        /* ============================================================
+           TOOLBAR
+           ============================================================ */
+        .bar-container { padding: 0 20px 24px 20px; position: relative; z-index: 3; }
+        .control-bar {
+          max-width: 640px; margin: 0 auto;
+          display: flex; align-items: center; gap: 16px;
+          padding: 10px 18px;
+          background: var(--panel-bg);
+          border: 1px solid var(--border-subtle);
+          backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+          border-radius: 14px;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
+
+        .system-status { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+        .status-indicator { width: 8px; height: 8px; border-radius: 50%; background: var(--state-idle); transition: all .3s ease; flex-shrink: 0; }
+
+        .stage[data-state="listening"] .status-indicator { background: var(--primary); box-shadow: 0 0 8px var(--primary); }
+        .stage[data-state="armed"] .status-indicator,
+        .stage[data-state="hearing"] .status-indicator { background: var(--primary); box-shadow: 0 0 12px var(--primary); }
+        .stage[data-state="thinking"] .status-indicator { background: var(--accent-purple); box-shadow: 0 0 12px var(--accent-purple); }
+        .stage[data-state="speaking"] .status-indicator { background: var(--accent-pink); box-shadow: 0 0 12px var(--accent-pink); }
+
+        #stateText {
+          font-size: 13px; font-weight: 500; letter-spacing: 0.02em; color: var(--text-muted);
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+
+        .vu-meter { display: flex; align-items: flex-end; gap: 3px; height: 16px; flex-shrink: 0; }
+        .vu-meter i {
+          width: 3px; height: 3px; border-radius: 1px;
+          background: rgba(255,255,255,0.15);
+          transition: height .08s linear, background .3s;
+        }
+        .stage[data-state="hearing"] .vu-meter i { background: var(--primary); }
+
+        .btn {
+          border: 1px solid var(--border-subtle);
+          background: rgba(255, 255, 255, 0.03);
+          color: var(--text-main); border-radius: 8px;
+          padding: 8px 16px; font-family: inherit; font-size: 13px; font-weight: 500;
+          cursor: pointer; transition: all .2s ease;
+          display: inline-flex; align-items: center; justify-content: center; gap: 6px;
           flex-shrink: 0;
         }
-        .switch::after {
-          content: ''; position: absolute; top: 3px; left: 3px;
-          width: 15px; height: 15px; border-radius: 50%;
-          background: #93a7bd; transition: .2s;
+        .btn:hover { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.2); }
+        .btn:active { transform: scale(.97); }
+        .btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+        .btn.active {
+          background: rgba(0, 229, 255, 0.12);
+          border-color: var(--primary); color: var(--primary);
+          box-shadow: 0 0 12px var(--primary-glow);
         }
-        .wake-toggle.on .switch { background: #3fb27f; }
-        .wake-toggle.on .switch::after { left: 20px; background: #fff; }
-        .wake-toggle.on { color: #cfe3d8; }
-
-        .modes {
-          display: flex; align-items: center; gap: 6px;
-          padding: 10px 14px; border-bottom: 1px solid #e4e9ef; background: #f8fafb;
+        .btn.icon-btn { width: 38px; height: 38px; padding: 0; }
+        .btn.icon-btn svg { width: 18px; height: 18px; fill: currentColor; }
+        .btn.recording {
+          background: rgba(255, 64, 129, 0.15);
+          border-color: var(--accent-pink); color: var(--accent-pink);
+          animation: pulseRecording 1.5s infinite;
         }
-        .modes button {
-          padding: 6px 14px; font-size: 12.5px; border: 1px solid #d3dae2;
-          background: #fff; border-radius: 20px; cursor: pointer;
-          color: #55677a; transition: .15s;
-        }
-        .modes button:hover { border-color: #16283d; }
-        .modes button.active { background: #16283d; color: #fff; border-color: #16283d; }
-        .modes .spacer { flex: 1; }
-        .modes .note { font-size: 11.5px; color: #9aa8b6; }
-
-        /* полоса состояния голосового режима */
-        .wakebar {
-          display: none; align-items: center; gap: 11px;
-          padding: 9px 16px; font-size: 12.5px;
-          border-bottom: 1px solid #e4e9ef;
-          background: #f4f8f6; color: #4a7a63;
-        }
-        .wakebar.on { display: flex; }
-        .wakebar.armed { background: #fef6e7; color: #8a6d2f; }
-        .wakebar.busy  { background: #eef2f7; color: #55677a; }
-        .wakebar .ring {
-          width: 9px; height: 9px; border-radius: 50%;
-          background: currentColor; animation: breathe 2.2s infinite;
-        }
-        .wakebar.armed .ring { animation: blink .8s infinite; }
-        @keyframes breathe { 50% { opacity: .3; } }
-        @keyframes blink   { 50% { opacity: .15; } }
-        .wakebar .spacer { flex: 1; }
-        .levels { display: flex; gap: 2px; align-items: flex-end; height: 16px; }
-        .levels i {
-          display: block; width: 3px; background: currentColor;
-          border-radius: 2px; height: 3px; transition: height .07s;
+        @keyframes pulseRecording {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(255, 64, 129, 0.4); }
+          50%      { box-shadow: 0 0 0 8px rgba(255, 64, 129, 0); }
         }
 
-        .messages {
-          flex: 1; overflow-y: auto; padding: 18px 16px;
-          display: flex; flex-direction: column; gap: 12px;
+        /* ============================================================
+           DIAGNOSTICS
+           ============================================================ */
+        .diagnostics-panel {
+          position: absolute; inset: 0; z-index: 10;
+          background: rgba(8, 10, 15, 0.95); backdrop-filter: blur(16px);
+          padding: 28px; overflow-y: auto; display: none; font-size: 13px;
         }
-        .msg {
-          max-width: 82%; padding: 11px 15px; border-radius: 14px;
-          font-size: 14px; line-height: 1.55; white-space: pre-wrap; word-wrap: break-word;
+        .diagnostics-panel.open { display: block; }
+        .diagnostics-panel h2 { font-size: 16px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--primary); margin-bottom: 6px; }
+        .diagnostics-panel .sub { color: var(--text-muted); font-size: 13px; margin-bottom: 20px; }
+        .diagnostics-panel input {
+          width: 100%; padding: 12px 16px; margin-bottom: 16px;
+          background: rgba(255,255,255,.03); border: 1px solid var(--border-subtle);
+          border-radius: 8px; color: var(--text-main); font: inherit; outline: none;
         }
-        .msg.user {
-          align-self: flex-end; background: #16283d; color: #fff;
-          border-bottom-right-radius: 3px;
+        .diagnostics-panel input:focus { border-color: var(--primary); }
+        .wake-log {
+          margin-bottom: 18px; padding: 12px 14px;
+          border: 1px solid var(--border-subtle); border-radius: 8px;
+          background: rgba(255,255,255,.01);
+          font-family: monospace; font-size: 12px; color: var(--text-muted);
+          max-height: 140px; overflow-y: auto; white-space: pre-wrap;
         }
-        .msg.user .mic-tag {
-          display: block; font-size: 10.5px; color: #8ba3c0;
-          margin-bottom: 4px; letter-spacing: .3px;
-        }
-        .msg.bot {
-          align-self: flex-start; background: #f0f3f7; border-bottom-left-radius: 3px;
-        }
-        .msg.err { align-self: flex-start; background: #fdeaea; color: #b23c3c; }
-        .msg.skip {
-          align-self: center; background: none; color: #b4bfca;
-          font-size: 11.5px; padding: 2px; font-style: italic;
-        }
+        .hit-card { border: 1px solid var(--border-subtle); border-radius: 8px; margin-bottom: 12px; overflow: hidden; background: rgba(255,255,255,0.01); }
+        .hit-header { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: rgba(255,255,255,.02); }
+        .hit-index { color: var(--text-muted); font-size: 12px; font-family: monospace; }
+        .score-bar { flex: 1; height: 4px; border-radius: 2px; background: rgba(255,255,255,.08); overflow: hidden; }
+        .score-fill { display: block; height: 100%; background: var(--primary); }
+        .score-fill.low { background: var(--text-muted); }
+        .hit-score { font-size: 12px; font-family: monospace; color: var(--text-muted); }
+        .hit-content { padding: 12px 14px; line-height: 1.5; color: #CBD5E1; font-size: 13px; white-space: pre-wrap; }
+        .close-btn { position: absolute; top: 20px; right: 24px; background: none; border: none; color: var(--text-muted); font-size: 24px; cursor: pointer; }
+        .close-btn:hover { color: var(--text-main); }
 
-        .hit {
-          align-self: stretch; width: 100%; border: 1px solid #e4e9ef;
-          border-radius: 10px; overflow: hidden; font-size: 13px;
+        @media (prefers-reduced-motion: reduce) {
+          *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
         }
-        .hit-head {
-          display: flex; align-items: center; gap: 10px;
-          padding: 8px 12px; background: #f8fafb; border-bottom: 1px solid #e4e9ef;
-        }
-        .hit-num { font-size: 11px; color: #8996a5; text-transform: uppercase; letter-spacing: .5px; }
-        .bar { flex: 1; height: 6px; background: #e4e9ef; border-radius: 3px; overflow: hidden; }
-        .bar span { display: block; height: 100%; border-radius: 3px; background: #3fb27f; }
-        .bar span.weak { background: #d9a441; }
-        .bar span.poor { background: #cf6b64; }
-        .score { font-family: Consolas, monospace; font-size: 12px; min-width: 42px; text-align: right; color: #55677a; }
-        .pass { font-size: 10.5px; padding: 2px 7px; border-radius: 10px; font-weight: 600; }
-        .pass.yes { background: #e3f4ec; color: #2b7d5b; }
-        .pass.no  { background: #f2f4f6; color: #94a2b1; }
-        .hit-body {
-          padding: 10px 12px; font-family: Consolas, monospace;
-          font-size: 12.5px; line-height: 1.5; white-space: pre-wrap; color: #3b4a5a;
-        }
-
-        .typing { align-self: flex-start; color: #7f8c9a; font-size: 13px; font-style: italic; padding: 2px 15px; }
-
-        .empty {
-          margin: auto; text-align: center; color: #9aa8b6;
-          font-size: 13.5px; line-height: 1.7; max-width: 460px;
-        }
-        .empty b { color: #55677a; display: block; margin-bottom: 6px; font-size: 14px; }
-        .empty code {
-          background: #f0f3f7; padding: 2px 7px; border-radius: 5px;
-          font-size: 12.5px; color: #3b4a5a;
-        }
-        .chip {
-          display: inline-block; margin: 4px 3px; padding: 5px 11px;
-          background: #f0f3f7; border: 1px solid #dde3ea; border-radius: 14px;
-          font-size: 12.5px; color: #55677a; cursor: pointer;
-        }
-        .chip:hover { background: #e3e9f0; }
-
-        .hint { font-size: 12px; color: #8996a5; padding: 0 18px 10px; line-height: 1.5; }
-
-        .inputbar {
-          display: flex; gap: 8px; padding: 14px;
-          border-top: 1px solid #e4e9ef; align-items: center;
-        }
-        .inputbar input[type=text] {
-          flex: 1; padding: 11px 15px; border: 1px solid #d3dae2;
-          border-radius: 9px; font-size: 14px; outline: none;
-        }
-        .inputbar input[type=text]:focus { border-color: #16283d; }
-        .inputbar button {
-          padding: 11px 22px; border: none; border-radius: 9px;
-          background: #16283d; color: #fff; font-size: 14px; cursor: pointer;
-        }
-        .inputbar button:disabled { opacity: .45; cursor: not-allowed; }
-        .inputbar button.send:hover:not(:disabled) { background: #23405f; }
-
-        .mic {
-          width: 44px; height: 44px; padding: 0 !important;
-          border-radius: 50% !important; background: #f0f3f7 !important;
-          border: 1px solid #d3dae2 !important;
-          display: flex; align-items: center; justify-content: center;
-          flex-shrink: 0; transition: .15s;
-        }
-        .mic svg { width: 19px; height: 19px; fill: #55677a; }
-        .mic:hover:not(:disabled) { background: #e3e9f0 !important; }
-        .mic.recording {
-          background: #d9534f !important; border-color: #d9534f !important;
-          animation: pulse 1.4s infinite;
-        }
-        .mic.recording svg { fill: #fff; }
-        @keyframes pulse {
-          0%   { box-shadow: 0 0 0 0 rgba(217,83,79,.5); }
-          70%  { box-shadow: 0 0 0 12px rgba(217,83,79,0); }
-          100% { box-shadow: 0 0 0 0 rgba(217,83,79,0); }
+        @media (max-height: 540px) {
+          :root { --core-size: 160px; }
+          .orb { width: 90px; height: 90px; }
+          .response-card { padding: 16px 20px; }
+          .heard-text { margin-top: 18px; }
         }
     </style>
 </head>
 <body>
 
-<div class="app">
-    <header>
-        <div class="titles">
-            <h1>Hadith Assistant</h1>
-            <div class="sub">
-                <span class="dot" id="statusDot"></span>
-                <span id="statusText">проверка соединения...</span>
+<div class="stage" id="stage" data-state="idle">
+
+    <main class="core-wrap">
+        <div class="core-container" id="coreContainer">
+            <div class="ring ring-outer"></div>
+            <div class="ring ring-inner"></div>
+            <div class="orb" id="orb"></div>
+        </div>
+
+        <p class="heard-text" id="heard"></p>
+
+        <div class="response-card">
+            <div class="response-content" id="answer" aria-live="polite"></div>
+        </div>
+    </main>
+
+    <div class="bar-container">
+        <footer class="control-bar">
+            <div class="system-status">
+                <span class="status-indicator"></span>
+                <span id="stateText">SYSTEM STANDBY</span>
             </div>
-        </div>
-        <div class="wake-toggle" id="wakeToggle" title="Постоянное прослушивание фразы-активатора">
-            <span class="switch"></span>
-            <span>Голосовой режим</span>
-        </div>
-    </header>
-
-    <div class="modes">
-        <button data-mode="ask" class="active">Чат</button>
-        <button data-mode="search">Поиск · отладка</button>
-        <span class="spacer"></span>
-        <span class="note">порог: <b id="thr">0.60</b></span>
+            <div class="vu-meter" id="level"></div>
+            <button class="btn icon-btn" id="micBtn" aria-label="Manual Voice Input">
+                <svg viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>
+            </button>
+            <button class="btn" id="wakeBtn">Passive Listen</button>
+            <button class="btn active" id="voiceBtn">Speech Output</button>
+        </footer>
     </div>
 
-    <div class="wakebar" id="wakebar">
-        <span class="ring"></span>
-        <span id="wakeState">жду активатор</span>
-        <span class="spacer"></span>
-        <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:11.5px;opacity:.85">
-            <input type="checkbox" id="requireWake" checked style="margin:0">
-            требовать активатор
-        </label>
-        <span class="levels" id="levels"></span>
-    </div>
+    <section class="diagnostics-panel" id="debug">
+        <button class="close-btn" id="debugClose" aria-label="Close Diagnostics">&times;</button>
+        <h2>Diagnostics</h2>
+        <p class="sub">Wake word log — что Whisper реально услышал. Добавляй частые варианты в WAKE_TARGETS.</p>
+        <div class="wake-log" id="wakeLog">(пусто)</div>
 
-    <div class="messages" id="messages">
-        <div class="empty" id="empty">
-            <b>Спрашивай голосом или текстом</b>
-            Включи <b style="display:inline">Голосовой режим</b> вверху справа и скажи
-            <code id="wakeHint">Jarvis</code>, а следом — свой вопрос.<br>
-            Можно и одной фразой: «Jarvis, what is said about intention».
-            <div style="margin-top:12px">
-                <span class="chip">What does Islam say about intention?</span>
-                <span class="chip">How should I treat my neighbour?</span>
-                <span class="chip">Столица Франции?</span>
-            </div>
-        </div>
-    </div>
+        <p class="sub">Vector search. Confidence threshold: <b id="thrLabel">0.60</b></p>
+        <input type="text" id="debugInput" placeholder="Execute semantic query test..." />
+        <div id="debugHits"></div>
+    </section>
 
-    <div class="hint" id="hint"></div>
-
-    <div class="inputbar">
-        <button class="mic" id="micBtn" title="Записать голос вручную">
-            <svg viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>
-        </button>
-        <input type="text" id="input" placeholder="Напиши вопрос или нажми микрофон..." autocomplete="off" />
-        <button class="send" id="send">Отправить</button>
-    </div>
 </div>
 
 <script>
-    // ======================= НАСТРОЙКИ =======================
+    /* ============================================================
+       SYSTEM CONFIGURATION
+       ============================================================ */
+    const THRESHOLD = 0.6;
+    const WAKE_LABEL = 'Hey Nuri';
 
-    const THRESHOLD = 0.6;          // должен совпадать с similarityThreshold в контроллере
+    /* Активатор из двух слов.
 
-    // Как активатор показывается в интерфейсе
-    const WAKE_LABEL = 'Jarvis';
+       Whisper плохо разбирает одно короткое слово в тишине — ему нужен
+       контекст. «Hey» он знает отлично на всех языках и почти никогда
+       не путает, а следом идущее имя достраивается по инерции.
+       Так же устроены Siri и Google Assistant.
 
-    // Эталонные написания. Точное совпадение не требуется —
-    // работает нечёткое сравнение, поэтому список короткий.
-    // «carvis» — как Whisper пишет это имя в турецком режиме.
-    const WAKE_TARGETS = ['jarvis', 'carvis', 'джарвис'];
+       Префикс необязателен: просто «Nuri» тоже сработает. Если пойдут
+       ложные срабатывания — см. REQUIRE_PREFIX ниже. */
+    const WAKE_PREFIX  = ['hey', 'hei', 'hay', 'hej', 'эй'];
+    const WAKE_TARGETS = ['nuri', 'nurі', 'нури', 'noori', 'nouri', 'nuriye'];
 
-    // Максимальное «расстояние» между услышанным и эталоном:
-    // 2 = допускаем две ошибки (замена/вставка/пропуск буквы).
-    const WAKE_TOLERANCE = 2;
+    /* Скелет «NR» короткий, под него могут подойти «near», «нора», «no'lur».
+       Если робот будится от посторонней речи — поставь true, тогда
+       «hey» станет обязательным, а пара «hey + Nuri» уже уникальна. */
+    const REQUIRE_PREFIX = false;
 
-    // Whisper обучался на субтитрах с YouTube и на тишине выдаёт
-    // эти фразы «из ниоткуда». Отбрасываем их, чтобы не засорять чат.
+    const TTS_ENGINE = 'piper';
+    const TTS_LANG = 'tr-TR';
+
     const HALLUCINATIONS = [
-        'thank you', 'thanks for watching', 'thanks for watching!',
-        'bye', 'bye bye', 'you', 'subscribe', 'please subscribe',
-        'see you next time', 'i am sitting', "i'm sitting",
-        'transcription by', 'subtitles by', 'amara org', 'мвк',
-        'продолжение следует', 'спасибо за просмотр', 'редактор субтитров'
+      'thank you','thanks for watching','thanks for watching!','bye','bye bye','you',
+      'subscribe','please subscribe','see you next time','i am sitting',"i'm sitting",
+      'transcription by','subtitles by','amara org','мвк','продолжение следует',
+      'спасибо за просмотр','редактор субтитров'
     ];
 
-    // Требовать активатор? false — любая произнесённая фраза уходит как вопрос.
-    // Удобно для проверки, что распознавание вообще работает.
     let REQUIRE_WAKE = true;
 
     const VAD = {
-        speakLevel:   0.020,  // громкость, с которой считаем что началась речь
-        silenceMs:    900,    // сколько тишины ждать, чтобы считать фразу законченной
-        minSpeechMs:  300,    // короче — считаем случайным шумом, не отправляем
-        maxSpeechMs:  15000,  // страховка от бесконечной записи
-        armedTimeout: 12000,  // сколько ждать вопрос после активатора
-        prerollMs:    1000,   // сколько аудио брать ДО момента срабатывания
-        postrollMs:   500,    // и сколько ПОСЛЕ — чтобы не обрезать хвост фразы
-        sliceMs:      200,    // размер куска в кольцевом буфере
-        padToMs:      2000    // минимальная длина отправляемого фрагмента
+      speakLevel: 0.020, silenceMs: 900, minSpeechMs: 300, maxSpeechMs: 15000,
+      armedTimeout: 12000, prerollMs: 1000, postrollMs: 500, sliceMs: 200, padToMs: 2000
     };
 
-    // ======================= ЭЛЕМЕНТЫ =======================
+    /* ============================================================
+       DOM NODES
+       ============================================================ */
+    const stage = document.getElementById('stage');
+    const orb = document.getElementById('orb');
+    const answerEl = document.getElementById('answer');
+    const heardEl = document.getElementById('heard');
+    const stateText = document.getElementById('stateText');
+    const levelEl = document.getElementById('level');
+    const micBtn = document.getElementById('micBtn');
+    const wakeBtn = document.getElementById('wakeBtn');
+    const voiceBtn = document.getElementById('voiceBtn');
+    const coreContainer = document.getElementById('coreContainer');
+    const debugEl = document.getElementById('debug');
+    const wakeLogEl = document.getElementById('wakeLog');
 
-    const messagesEl = document.getElementById('messages');
-    const emptyEl    = document.getElementById('empty');
-    const inputEl    = document.getElementById('input');
-    const sendBtn    = document.getElementById('send');
-    const micBtn     = document.getElementById('micBtn');
-    const hintEl     = document.getElementById('hint');
-    const statusDot  = document.getElementById('statusDot');
-    const statusText = document.getElementById('statusText');
-    const wakeToggle = document.getElementById('wakeToggle');
-    const wakebar    = document.getElementById('wakebar');
-    const wakeState  = document.getElementById('wakeState');
-    const levelsEl   = document.getElementById('levels');
+    document.getElementById('thrLabel').textContent = THRESHOLD.toFixed(2);
+    for (let i = 0; i < 6; i++) levelEl.appendChild(document.createElement('i'));
+    const levelBars = levelEl.querySelectorAll('i');
 
-    document.getElementById('thr').textContent = THRESHOLD.toFixed(2);
-
-    const requireWakeBox = document.getElementById('requireWake');
-    requireWakeBox.addEventListener('change', () => {
-      REQUIRE_WAKE = requireWakeBox.checked;
-      if (wakeOn) {
-        armed = false;
-        setWakeState(REQUIRE_WAKE ? `жду фразу «${WAKE_LABEL}»` : 'слушаю любую фразу');
-      }
-    });
-
-    for (let i = 0; i < 6; i++) levelsEl.appendChild(document.createElement('i'));
-    const bars = levelsEl.querySelectorAll('i');
-
-    let mode = 'ask';
-
-    const hints = {
-      ask:    'Хадисы подмешиваются автоматически — только если сходство выше порога.',
-      search: 'Показывает 5 ближайших фрагментов со шкалой сходства, без обращения к модели.'
+    /* ============================================================
+       STATE
+       ============================================================ */
+    const LABELS = {
+      idle:      'SYSTEM STANDBY',
+      listening: `AWAITING "${WAKE_LABEL.toUpperCase()}"`,
+      hearing:   'RECEIVING AUDIO',
+      armed:     'LISTENING TO QUERY',
+      thinking:  'EXECUTING INFERENCE',
+      speaking:  'TRANSMITTING RESPONSE'
     };
-    hintEl.textContent = hints.ask;
 
-    document.querySelectorAll('.modes button').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.modes button').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        mode = btn.dataset.mode;
-        hintEl.textContent = hints[mode];
-      });
-    });
-
-    document.querySelectorAll('.chip').forEach(chip => {
-      chip.addEventListener('click', () => { inputEl.value = chip.textContent; send(); });
-    });
-
-    // ======================= ВЫВОД =======================
-
-    function clearEmpty() { if (emptyEl && emptyEl.parentNode) emptyEl.remove(); }
-
-    // возвращает созданный элемент — нужно для потокового дописывания текста
-    function addMsg(text, cls, tag) {
-      clearEmpty();
-      const d = document.createElement('div');
-      d.className = 'msg ' + cls;
-      if (tag) {
-        const t = document.createElement('span');
-        t.className = 'mic-tag';
-        t.textContent = tag;
-        d.appendChild(t);
-        const body = document.createElement('span');
-        body.textContent = text;
-        d.appendChild(body);
-        d.__body = body;          // куда дописывать текст
-      } else {
-        d.textContent = text;
-        d.__body = d;
-      }
-      messagesEl.appendChild(d);
-      messagesEl.scrollTop = messagesEl.scrollHeight;
-      return d;
+    let currentState = 'idle';
+    function setState(s) {
+      if (currentState === s) return;
+      currentState = s;
+      stage.dataset.state = s;
+      stateText.textContent = LABELS[s] || s.toUpperCase();
     }
 
-    function addHit(hit, index) {
-      clearEmpty();
-      const score = hit.score ?? 0;
-      const passes = score >= THRESHOLD;
-      const pct = Math.max(0, Math.min(100, score * 100));
-      let barClass = '';
-      if (score < THRESHOLD) barClass = 'weak';
-      if (score < THRESHOLD - 0.15) barClass = 'poor';
+    const showAnswer = on => stage.classList.toggle('has-answer', on);
 
-      const box = document.createElement('div');
-      box.className = 'hit';
-      box.innerHTML = `
-        <div class="hit-head">
-          <span class="hit-num">#${index + 1}</span>
-          <span class="bar"><span class="${barClass}" style="width:${pct}%"></span></span>
-          <span class="score">${score.toFixed(3)}</span>
-          <span class="pass ${passes ? 'yes' : 'no'}">${passes ? 'в контекст' : 'отсечён'}</span>
-        </div>
-        <div class="hit-body"></div>`;
-      box.querySelector('.hit-body').textContent = hit.text;
-      messagesEl.appendChild(box);
-      messagesEl.scrollTop = messagesEl.scrollHeight;
+    /* Куда возвращаться после любого действия — одно место,
+       чтобы состояния не рассинхронились. */
+    function restState() {
+      if (!wakeOn) return 'idle';
+      return REQUIRE_WAKE ? 'listening' : 'hearing';
     }
 
-    function statusMsg(text) {
-      clearEmpty();
-      let d = document.getElementById('typing');
-      if (!d) {
-        d = document.createElement('div');
-        d.className = 'typing';
-        d.id = 'typing';
-        messagesEl.appendChild(d);
-      }
-      d.textContent = text;
-      messagesEl.scrollTop = messagesEl.scrollHeight;
+    /* Журнал промахов активатора — виден в панели диагностики.
+       Собери отсюда реальные варианты и добавь в WAKE_TARGETS. */
+    const wakeLog = [];
+    function logWake(heard, skeleton) {
+      wakeLog.unshift(`${new Date().toLocaleTimeString()}  «${heard}»  →  ${skeleton || '—'}`);
+      if (wakeLog.length > 40) wakeLog.pop();
+      wakeLogEl.textContent = wakeLog.join('\n');
     }
 
-    function statusOff() {
-      const d = document.getElementById('typing');
-      if (d) d.remove();
+    /* ============================================================
+       ФОНЕТИЧЕСКОЕ СРАВНЕНИЕ
+
+       Whisper пишет имя как Nuri, Nuriye, Noori, Нури, Nuri̇ — на письме
+       это далеко, на слух одно и то же. Схлопываем путаемые буквы,
+       выбрасываем гласные и сравниваем звуковой скелет.
+
+       Носовые N и M сохраняем обязательно: на них держится «Nuri».
+       Без них от имени осталась бы одна R.
+       ============================================================ */
+    function phonetic(word) {
+      return word.toLowerCase()
+        .replace(/дж/g, 'J')
+        .replace(/[jgcç]/g, 'J')
+        .replace(/[vwf]/g, 'V')
+        .replace(/[szşц]/g, 'S')
+        .replace(/[вф]/g, 'V')
+        .replace(/[сз]/g, 'S')
+        .replace(/[рr]/g, 'R')
+        .replace(/[нn]/g, 'N')
+        .replace(/[мm]/g, 'M')
+        .replace(/[лl]/g, 'L')
+        .replace(/[аяеёиоуыэюйaeıioöuü]/g, '')   // гласные долой
+        .replace(/[^JVSRNML]/g, '')               // прочий мусор долой
+        .replace(/(.)\1+/g, '$1');                // сдвоенные буквы
     }
 
-    // ======================= ОТПРАВКА ВОПРОСА =======================
+    const WAKE_PHONETIC   = WAKE_TARGETS.map(phonetic);
+    const PREFIX_PHONETIC = WAKE_PREFIX.map(phonetic).filter(Boolean);
 
-    async function send(tag) {
-      const text = inputEl.value.trim();
-      if (!text) return;
-
-      addMsg(text, 'user', tag);
-      inputEl.value = '';
-      sendBtn.disabled = true;
-      statusMsg(mode === 'search' ? 'ищу...' : 'модель думает...');
-
-      try {
-        const res = await fetch(`/api/${mode}/${encodeURIComponent(text)}`);
-
-        if (!res.ok) {
-          statusOff();
-          addMsg(`Ошибка сервера: ${res.status}.`, 'err');
-          return;
-        }
-
-        if (mode === 'search') {
-          statusOff();
-          const hits = await res.json();
-          if (!hits.length) addMsg('Ничего не найдено.', 'bot');
-          else hits.forEach(addHit);
-        } else {
-          // Потоковое чтение: текст дописывается по мере генерации,
-          // а не показывается целиком через 40 секунд.
-          const reader = res.body.getReader();
-          const decoder = new TextDecoder('utf-8');
-          let acc = '';
-          let bubble = null;
-
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            // stream:true — символ может быть разрезан между чанками,
-            // декодер удержит хвост до следующего куска
-            acc += decoder.decode(value, { stream: true });
-
-            // «модель думает...» держим до первого кусочка текста:
-            // пока идёт обработка промпта, отвечать ещё нечем
-            if (!bubble && acc.trim()) {
-              statusOff();
-              bubble = addMsg('', 'bot');
-            }
-            if (bubble) {
-              bubble.__body.textContent = acc;
-              messagesEl.scrollTop = messagesEl.scrollHeight;
-            }
-          }
-
-          statusOff();
-          if (!bubble) addMsg('(пустой ответ)', 'bot');
-        }
-      } catch (e) {
-        statusOff();
-        addMsg('Нет связи с backend. Проверь, что Spring Boot работает на :9090.', 'err');
-        console.error(e);
-      } finally {
-        sendBtn.disabled = false;
-      }
-    }
-
-    sendBtn.addEventListener('click', () => send(null));
-    inputEl.addEventListener('keydown', e => { if (e.key === 'Enter') send(null); });
-
-    // ======================= РАСПОЗНАВАНИЕ =======================
-
-    async function transcribe(blob) {
-      const form = new FormData();
-      // имя файла обязательно: Whisper определяет формат по расширению
-      form.append('file', blob, 'speech.webm');
-      const res = await fetch('/api/stt', { method: 'POST', body: form });
-      if (!res.ok) throw new Error('STT ' + res.status);
-      return (await res.text()).trim();
-    }
-
-    // чистим служебные пометки Whisper: [BLANK_AUDIO], *cough*, (music)
-    function clean(text) {
-      return text
-        .replace(/\[.*?]/g, '')
-        .replace(/\*.*?\*/g, '')
-        .replace(/\(.*?\)/g, '')
-        .replace(/\s+/g, ' ')
-        .trim();
-    }
-
-    // Расстояние Левенштейна: сколько правок нужно, чтобы превратить a в b.
-    // «shemsatin» → «shamsettin» = 3 правки.
     function levenshtein(a, b) {
       const m = a.length, n = b.length;
-      let prev = Array.from({ length: n + 1 }, (_, j) => j);
-      let cur = new Array(n + 1);
+      let prev = Array.from({ length: n + 1 }, (_, j) => j), cur = new Array(n + 1);
       for (let i = 1; i <= m; i++) {
         cur[0] = i;
         for (let j = 1; j <= n; j++) {
-          cur[j] = Math.min(
-            prev[j] + 1,                                   // удаление
-            cur[j - 1] + 1,                                // вставка
-            prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)  // замена
-          );
+          cur[j] = Math.min(prev[j] + 1, cur[j-1] + 1, prev[j-1] + (a[i-1] === b[j-1] ? 0 : 1));
         }
         [prev, cur] = [cur, prev];
       }
       return prev[n];
     }
 
-    function normalize(text) {
-      return text.toLowerCase()
-                 .replace(/[.,!?;:—\-'"«»]/g, ' ')
-                 .replace(/\s+/g, ' ')
-                 .trim();
-    }
+    const normalize = t => t.toLowerCase().replace(/[.,!?;:—\-'"«»]/g, ' ').replace(/\s+/g, ' ').trim();
 
-    // Похоже ли слово (или пара слов) на активатор?
     function looksLikeWake(chunk) {
-      const c = chunk.replace(/\s/g, '');
-      if (c.length < 5) return false;   // слишком коротко, чтобы быть именем
-      return WAKE_TARGETS.some(t => levenshtein(c, t) <= WAKE_TOLERANCE);
+      const p = phonetic(chunk.replace(/\s/g, ''));
+      if (p.length < 2) return false;
+      return WAKE_PHONETIC.some(t => levenshtein(p, t) <= 1);
     }
 
-    // Ищем активатор в начале фразы; возвращаем остаток после него, либо null.
-    // Проверяем и отдельные слова, и пары соседних — Whisper часто
-    // разбивает имя надвое («Shem Satin»).
+    /* «hey» состоит почти из одних гласных, его скелет пустой —
+       поэтому пустой результат тоже считаем совпадением. */
+    function looksLikePrefix(word) {
+      const p = phonetic(word);
+      if (!p.length) return word.length <= 4;
+      return PREFIX_PHONETIC.some(t => levenshtein(p, t) <= 1);
+    }
+
+    /**
+     * Ищет активатор в начале фразы. Возвращает остаток после него
+     * (то есть сам вопрос) либо null, если активатора нет.
+     */
     function matchWake(text) {
       const words = normalize(text).split(' ').filter(Boolean);
-
-      // активатор ищем только в первых трёх словах — дальше это уже вопрос
-      const limit = Math.min(words.length, 3);
+      const limit = Math.min(words.length, 4);   // «hey» сдвигает имя вправо на слово
 
       for (let i = 0; i < limit; i++) {
-        // пара слов: «shem satin»
+        // «hey nuri ...» — префикс и имя раздельно
+        if (i + 1 < words.length && looksLikePrefix(words[i]) && looksLikeWake(words[i + 1])) {
+          return words.slice(i + 2).join(' ').trim();
+        }
+        // Whisper склеил их: «heynuri»
         if (i + 1 < words.length && looksLikeWake(words[i] + words[i + 1])) {
           return words.slice(i + 2).join(' ').trim();
         }
-        // одно слово: «shamsettin»
-        if (looksLikeWake(words[i])) {
+        // просто «nuri» без префикса
+        if (!REQUIRE_PREFIX && looksLikeWake(words[i])) {
           return words.slice(i + 1).join(' ').trim();
         }
       }
       return null;
     }
 
-    // Похоже на галлюцинацию Whisper на тишине?
     function isHallucination(text) {
       const n = normalize(text).replace(/[^a-zа-я ]/g, '').trim();
       if (!n) return true;
       return HALLUCINATIONS.some(h => n === h || n.startsWith(h + ' ') || n.endsWith(' ' + h));
     }
 
-    // ======================= РУЧНАЯ ЗАПИСЬ (кнопка) =======================
+    const clean = t => t.replace(/\[.*?]/g,'').replace(/\*.*?\*/g,'').replace(/\(.*?\)/g,'').replace(/\s+/g,' ').trim();
 
+    /* ============================================================
+       TTS
+       ============================================================ */
+    let speakOn = true;
+    let ttsQueue = [], ttsBusy = false, currentAudio = null;
+    let ttsCtx = null, ttsAnalyser = null, ttsRaf = null;
+
+    let ttsVoice = null;
+    function pickVoice() {
+      const v = speechSynthesis.getVoices();
+      if (!v.length) return;
+      ttsVoice = v.find(x => x.lang === TTS_LANG) || v.find(x => x.lang.startsWith(TTS_LANG.slice(0,2))) || null;
+    }
+    pickVoice();
+    speechSynthesis.onvoiceschanged = pickVoice;
+
+    voiceBtn.addEventListener('click', () => {
+      speakOn = !speakOn;
+      voiceBtn.classList.toggle('active', speakOn);
+      if (!speakOn) stopSpeaking();
+    });
+
+    function speakBrowser(s) {
+      return new Promise(res => {
+        const u = new SpeechSynthesisUtterance(s);
+        if (ttsVoice) u.voice = ttsVoice;
+        u.lang = TTS_LANG;
+        u.onend = u.onerror = res;
+        speechSynthesis.speak(u);
+      });
+    }
+
+    async function speakPiper(sentence) {
+      const form = new FormData();
+      form.append('text', sentence);
+      const res = await fetch('/api/tts', { method: 'POST', body: form });
+      if (!res.ok) throw new Error('TTS Service Error: ' + res.status);
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+
+      return new Promise(resolve => {
+        const audio = new Audio(url);
+        currentAudio = audio;
+
+        try {
+          ttsCtx = ttsCtx || new (window.AudioContext || window.webkitAudioContext)();
+          const src = ttsCtx.createMediaElementSource(audio);
+          ttsAnalyser = ttsCtx.createAnalyser();
+          ttsAnalyser.fftSize = 256;
+          src.connect(ttsAnalyser);
+          ttsAnalyser.connect(ttsCtx.destination);   // без этого звука не будет
+          driveOrb();
+        } catch { ttsAnalyser = null; }
+
+        const done = () => {
+          URL.revokeObjectURL(url);
+          currentAudio = null;
+          ttsAnalyser = null;
+          orb.classList.remove('voice-driven');
+          orb.style.transform = '';
+          resolve();
+        };
+        audio.onended = audio.onerror = done;
+        audio.play().catch(done);
+      });
+    }
+
+    /* Ядро пульсирует по реальной громкости синтезированной речи. */
+    function driveOrb() {
+      orb.classList.add('voice-driven');
+      const buf = new Uint8Array(ttsAnalyser.frequencyBinCount);
+      (function tick() {
+        if (!ttsAnalyser) return;
+        ttsAnalyser.getByteTimeDomainData(buf);
+        let sum = 0;
+        for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v; }
+        const rms = Math.sqrt(sum / buf.length);
+        orb.style.transform = `scale(${(1 + Math.min(0.32, rms * 2.4)).toFixed(3)})`;
+        ttsRaf = requestAnimationFrame(tick);
+      })();
+    }
+
+    function enqueueSpeech(s) {
+      if (!speakOn) return;
+      const c = s.replace(/[*_#`]/g, '').trim();
+      if (!c) return;
+      ttsQueue.push(c);
+      playNext();
+    }
+
+    async function playNext() {
+      if (ttsBusy || !ttsQueue.length) return;
+      ttsBusy = true;
+      setState('speaking');
+      while (ttsQueue.length && speakOn) {
+        const s = ttsQueue.shift();
+        try {
+          if (TTS_ENGINE === 'piper') await speakPiper(s);
+          else await speakBrowser(s);
+        } catch (e) {
+          console.warn('Piper недоступен, переключаюсь на браузерный голос:', e);
+          try { await speakBrowser(s); } catch {}
+        }
+      }
+      ttsBusy = false;
+      setState(restState());
+    }
+
+    function stopSpeaking() {
+      ttsQueue = []; ttsBusy = false;
+      speechSynthesis.cancel();
+      if (ttsRaf) cancelAnimationFrame(ttsRaf);
+      ttsAnalyser = null;
+      orb.classList.remove('voice-driven');
+      orb.style.transform = '';
+      if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+    }
+
+    const isSpeaking = () => speechSynthesis.speaking || ttsBusy || currentAudio !== null;
+
+    /* ============================================================
+       INFERENCE STREAMING
+       ============================================================ */
+    async function ask(text) {
+      if (!text || !text.trim()) return;
+      stopSpeaking();
+
+      const q = text.trim();
+      heardEl.textContent = `[QUERY]: "${q}"`;
+      answerEl.textContent = '';
+      showAnswer(false);
+      setState('thinking');
+
+      try {
+        const res = await fetch(`/api/ask/${encodeURIComponent(q)}`);
+        if (!res.ok) { fail(`Service Error [${res.status}]`); return; }
+
+        const reader = res.body.getReader();
+        const dec = new TextDecoder('utf-8');
+        let acc = '', spokenUpTo = 0, started = false;
+
+        const caret = document.createElement('span');
+        caret.className = 'caret';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          acc += dec.decode(value, { stream: true });
+
+          if (!started && acc.trim()) { started = true; showAnswer(true); }
+          if (started) {
+            answerEl.textContent = acc;
+            answerEl.appendChild(caret);
+            answerEl.scrollTop = answerEl.scrollHeight;
+          }
+
+          // озвучиваем законченные предложения, не дожидаясь конца ответа
+          if (speakOn) {
+            const pending = acc.slice(spokenUpTo);
+            const end = Math.max(
+              pending.lastIndexOf('.'), pending.lastIndexOf('!'),
+              pending.lastIndexOf('?'), pending.lastIndexOf('\n')
+            );
+            if (end !== -1) { enqueueSpeech(pending.slice(0, end + 1)); spokenUpTo += end + 1; }
+          }
+        }
+
+        if (speakOn && acc.length > spokenUpTo) enqueueSpeech(acc.slice(spokenUpTo));
+        caret.remove();
+
+        if (!acc.trim()) fail('Empty response payload returned.');
+        else if (!speakOn) setState(restState());
+
+      } catch (e) {
+        console.error(e);
+        fail('Backend Connection Lost. Verify Spring Boot endpoint on port 9090.');
+      }
+    }
+
+    function fail(msg) {
+      showAnswer(true);
+      answerEl.textContent = msg;
+      setState(restState());
+    }
+
+    /* ============================================================
+       STT
+       ============================================================ */
+    async function transcribe(blob) {
+      const form = new FormData();
+      form.append('file', blob, 'speech.webm');
+      const res = await fetch('/api/stt', { method: 'POST', body: form });
+      if (!res.ok) throw new Error('STT Service Failure: ' + res.status);
+      return (await res.text()).trim();
+    }
+
+    /* ============================================================
+       MANUAL RECORDING
+       ============================================================ */
     let manualRec = null, manualChunks = [], manualStream = null;
 
     micBtn.addEventListener('click', async () => {
-      if (wakeOn) {
-        addMsg('Выключи голосовой режим, чтобы записывать вручную.', 'err');
-        return;
-      }
-      if (manualRec && manualRec.state === 'recording') {
-        manualRec.stop();
-        return;
-      }
-      try {
-        manualStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      } catch (e) {
-        addMsg('Нет доступа к микрофону.', 'err');
-        return;
-      }
+      if (wakeOn) { fail('Disable Passive Listener prior to manual override.'); return; }
+      if (manualRec && manualRec.state === 'recording') { manualRec.stop(); return; }
+
+      try { manualStream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+      catch { fail('Hardware Access Denied: Microphone permissions required.'); return; }
+
       manualChunks = [];
       manualRec = new MediaRecorder(manualStream);
       manualRec.ondataavailable = e => { if (e.data.size) manualChunks.push(e.data); };
@@ -608,62 +723,39 @@
         manualStream.getTracks().forEach(t => t.stop());
         micBtn.classList.remove('recording');
         if (!manualChunks.length) return;
-        statusMsg('распознаю речь...');
+        setState('thinking');
         try {
           const text = clean(await transcribe(new Blob(manualChunks, { type: 'audio/webm' })));
-          statusOff();
-          if (!text) { addMsg('Ничего не распознано.', 'err'); return; }
-          inputEl.value = text;
-          send('🎙 голосовое');
-        } catch (e) {
-          statusOff();
-          addMsg('Ошибка распознавания.', 'err');
-          console.error(e);
-        }
+          if (!text) { fail('Audio transcription empty. Retry input.'); return; }
+          ask(text);
+        } catch (e) { console.error(e); fail('STT processing failure.'); }
       };
       manualRec.start();
       micBtn.classList.add('recording');
+      setState('hearing');
     });
 
-    // ======================= ГОЛОСОВОЙ РЕЖИМ (wake word) =======================
-
+    /* ============================================================
+       PASSIVE VAD ENGINE
+       ============================================================ */
     let wakeOn = false;
     let wakeStream = null, wakeCtx = null, wakeAnalyser = null, wakeRaf = null;
     let speaking = false, speechStart = 0, lastLoud = 0;
-    let armed = false, armedUntil = 0;   // armed = активатор услышан, ждём вопрос
-    let processing = false;              // идёт распознавание — не начинаем новую запись
+    let armed = false, armedUntil = 0, processing = false;
+    let ringRec = null, headerChunk = null, ring = [];
 
-    // Кольцевой буфер непрерывной записи.
-    // Первый кусок содержит заголовок webm — его нужно хранить всегда,
-    // иначе последующие куски невозможно декодировать.
-    let ringRec = null;
-    let headerChunk = null;
-    let ring = [];                       // [{blob, t}] — кусок и время его получения
-
-    function setWakeState(text, cls) {
-      wakeState.textContent = text;
-      wakebar.classList.remove('armed', 'busy');
-      if (cls) wakebar.classList.add(cls);
-    }
-
-    wakeToggle.addEventListener('click', () => wakeOn ? stopWake() : startWake());
+    wakeBtn.addEventListener('click', () => wakeOn ? stopWake() : startWake());
 
     async function startWake() {
       try {
         wakeStream = await navigator.mediaDevices.getUserMedia({
           audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
         });
-      } catch (e) {
-        addMsg('Нет доступа к микрофону. Разреши его в настройках браузера.', 'err');
-        console.error(e);
-        return;
-      }
+      } catch { fail('Hardware Access Denied: Microphone permissions required.'); return; }
 
-      wakeOn = true;
-      armed = false;
-      wakeToggle.classList.add('on');
-      wakebar.classList.add('on');
-      setWakeState(REQUIRE_WAKE ? `жду фразу «${WAKE_LABEL}»` : 'слушаю любую фразу');
+      wakeOn = true; armed = false;
+      wakeBtn.classList.add('active');
+      setState(restState());
 
       wakeCtx = new (window.AudioContext || window.webkitAudioContext)();
       const src = wakeCtx.createMediaStreamSource(wakeStream);
@@ -671,52 +763,52 @@
       wakeAnalyser.fftSize = 512;
       src.connect(wakeAnalyser);
 
-      // Непрерывная запись мелкими кусками.
-      // Так у нас всегда есть аудио ДО момента, когда сработал детектор —
-      // иначе терялось начало фразы (как раз слово «hey»).
-      headerChunk = null;
-      ring = [];
+      // Непрерывная запись кусками. Первый кусок содержит webm-заголовок
+      // и хранится всегда — без него остальные невозможно декодировать.
+      headerChunk = null; ring = [];
       ringRec = new MediaRecorder(wakeStream);
       ringRec.ondataavailable = e => {
         if (!e.data.size) return;
         if (!headerChunk) { headerChunk = e.data; return; }
         ring.push({ blob: e.data, t: Date.now() });
-        // держим последние 30 секунд
         const cutoff = Date.now() - 30000;
         while (ring.length && ring[0].t < cutoff) ring.shift();
       };
       ringRec.start(VAD.sliceMs);
 
       const buf = new Float32Array(wakeAnalyser.fftSize);
-      loop();
-
-      function loop() {
+      (function loop() {
         if (!wakeOn) return;
         wakeAnalyser.getFloatTimeDomainData(buf);
 
-        // среднеквадратичная громкость
         let sum = 0;
         for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
         const rms = Math.sqrt(sum / buf.length);
 
-        // индикатор
-        const h = Math.min(16, Math.max(3, rms * 260));
-        bars.forEach((b, i) => {
-          b.style.height = Math.max(3, h * (0.55 + 0.45 * Math.sin(Date.now() / 90 + i))) + 'px';
+        const h = Math.min(16, Math.max(3, rms * 280));
+        levelBars.forEach((b, i) => {
+          b.style.height = Math.max(3, h * (0.5 + 0.5 * Math.sin(Date.now()/95 + i))) + 'px';
         });
 
         const now = Date.now();
 
-        // сброс режима ожидания вопроса по таймауту
-        if (armed && now > armedUntil) {
+        // Пока ребёнок говорит, отсчёт ожидания отодвигается — иначе
+        // длинный вопрос успевает «просрочиться» на середине фразы.
+        if (armed && speaking) armedUntil = now + VAD.armedTimeout;
+        if (armed && !speaking && !processing && now > armedUntil) {
           armed = false;
-          setWakeState(`жду фразу «${WAKE_LABEL}»`);
+          setState(restState());
         }
 
-        if (!processing) {
+        // Пока робот говорит — не слушаем, иначе услышит сам себя
+        // и уйдёт в бесконечный разговор с собой.
+        if (!processing && !isSpeaking()) {
           if (rms > VAD.speakLevel) {
             lastLoud = now;
-            if (!speaking) beginUtterance(now);
+            if (!speaking) {
+              speaking = true; speechStart = now;
+              if (!armed) setState('hearing');
+            }
           } else if (speaking && now - lastLoud > VAD.silenceMs) {
             endUtterance(now);
           }
@@ -724,136 +816,151 @@
         }
 
         wakeRaf = requestAnimationFrame(loop);
-      }
-    }
-
-    function beginUtterance(now) {
-      speaking = true;
-      speechStart = now;
-      // ничего не запускаем — запись уже идёт непрерывно
+      })();
     }
 
     function endUtterance(now) {
       speaking = false;
-      if (now - speechStart < VAD.minSpeechMs) return;  // шум, не отправляем
-
-      // Даём буферу дописать хвост фразы, потом собираем фрагмент.
-      // Без этой паузы последние слова обрезаются на полуслове.
+      if (now - speechStart < VAD.minSpeechMs) {   // короткий шум, не отправляем
+        setState(armed ? 'armed' : restState());
+        return;
+      }
+      // даём буферу дописать хвост фразы, иначе последние слова обрежутся
       setTimeout(() => collectAndSend(speechStart), VAD.postrollMs);
     }
 
     function collectAndSend(startedAt) {
-      // Whisper плохо работает с очень короткими записями — он рассчитан
-      // на длинные фрагменты. Поэтому для коротких фраз («Jarvis»)
-      // расширяем окно назад, чтобы набрать хотя бы padToMs аудио.
       let from = startedAt - VAD.prerollMs;
       const now = Date.now();
+      // Whisper плохо работает с очень короткими записями — добираем окно назад
       if (now - from < VAD.padToMs) from = now - VAD.padToMs;
 
       const parts = ring.filter(c => c.t >= from).map(c => c.blob);
       if (!parts.length) return;
-
       handleUtterance(new Blob([headerChunk, ...parts], { type: 'audio/webm' }));
     }
 
+    /**
+     * Флаг armed снимается СРАЗУ и запоминается в локальной переменной,
+     * недоступной таймеру из цикла rAF. Иначе при медленном Whisper
+     * (30 секунд и больше) таймер успевал сбросить взвод, и уже
+     * распознанный вопрос молча выбрасывался.
+     */
     async function handleUtterance(blob) {
       processing = true;
-      setWakeState('распознаю...', 'busy');
+
+      const wasArmed = armed;
+      armed = false;
+
+      setState('thinking');
 
       let text = '';
-      try {
-        text = clean(await transcribe(blob));
-      } catch (e) {
-        console.error(e);
-      }
-
+      try { text = clean(await transcribe(blob)); } catch (e) { console.error(e); }
       processing = false;
 
-      // пусто или выдуманная Whisper фраза на тишине — молча игнорируем
       if (!text || isHallucination(text)) {
-        if (text) console.log('галлюцинация Whisper, отброшено:', text);
-        setWakeState(armed ? 'слушаю вопрос...' : `жду фразу «${WAKE_LABEL}»`, armed ? 'armed' : null);
+        if (text) console.log('VAD Filtered Hallucination:', text);
+        if (wasArmed) {
+          // не расслышали вопрос — возвращаем взвод, даём повторить
+          armed = true;
+          armedUntil = Date.now() + VAD.armedTimeout;
+          setState('armed');
+        } else {
+          setState(restState());
+        }
         return;
       }
 
-      if (armed) {
-        // активатор уже был — эта фраза и есть вопрос
-        armed = false;
-        setWakeState(`жду фразу «${WAKE_LABEL}»`);
-        inputEl.value = text;
-        send('🎙 голосовое');
-        return;
-      }
+      // имя уже прозвучало раньше — эта фраза и есть вопрос
+      if (wasArmed) { ask(text); return; }
 
-      // режим без активатора — любая фраза считается вопросом
-      if (!REQUIRE_WAKE) {
-        inputEl.value = text;
-        send('🎙 голосовое');
-        setWakeState('слушаю');
-        return;
-      }
+      // режим без активатора: любая фраза считается вопросом
+      if (!REQUIRE_WAKE) { ask(text); return; }
 
       const rest = matchWake(text);
 
       if (rest === null) {
-        // активатора нет — игнорируем, но показываем что услышали
-        console.log('пропущено (нет активатора):', text);
-        addMsg('пропущено: «' + text + '»', 'skip');
-        setWakeState(`жду фразу «${WAKE_LABEL}»`);
+        const first = normalize(text).split(' ').slice(0, 2).join(' ');
+        logWake(text, phonetic(first.replace(/\s/g, '')));
+        console.log('Keyword match negative:', text);
+        setState(restState());
         return;
       }
 
       if (rest.length > 1) {
-        // «Jarvis, what is intention» — вопрос в той же фразе
-        inputEl.value = rest;
-        send('🎙 голосовое');
-        setWakeState(`жду фразу «${WAKE_LABEL}»`);
+        // «Hey Nuri, ... вопрос» — активатор и вопрос одной фразой
+        ask(rest);
       } else {
         // сказали только активатор — ждём следующую фразу
         armed = true;
         armedUntil = Date.now() + VAD.armedTimeout;
-        setWakeState('да, слушаю вопрос...', 'armed');
+        setState('armed');
       }
     }
 
     function stopWake() {
-      wakeOn = false;
-      armed = false;
-      speaking = false;
-      processing = false;
+      wakeOn = false; armed = false; speaking = false; processing = false;
       if (wakeRaf) cancelAnimationFrame(wakeRaf);
       if (ringRec && ringRec.state === 'recording') ringRec.stop();
       if (wakeCtx) wakeCtx.close();
       if (wakeStream) wakeStream.getTracks().forEach(t => t.stop());
-      wakeCtx = null; wakeStream = null; wakeAnalyser = null;
-      ringRec = null; ring = []; headerChunk = null;
-      wakeToggle.classList.remove('on');
-      wakebar.classList.remove('on', 'armed', 'busy');
-      bars.forEach(b => b.style.height = '3px');
+      wakeCtx = wakeStream = wakeAnalyser = ringRec = null;
+      ring = []; headerChunk = null;
+      wakeBtn.classList.remove('active');
+      levelBars.forEach(b => b.style.height = '3px');
+      setState('idle');
     }
 
-    // микрофон отпускаем, когда вкладка закрывается
     window.addEventListener('beforeunload', stopWake);
 
-    // ======================= ПРОВЕРКА BACKEND =======================
+    /* ============================================================
+       DIAGNOSTICS — долгое нажатие на ядро
+       ============================================================ */
+    let holdTimer = null;
+    coreContainer.addEventListener('pointerdown', () => { holdTimer = setTimeout(() => debugEl.classList.add('open'), 900); });
+    coreContainer.addEventListener('pointerup',   () => clearTimeout(holdTimer));
+    coreContainer.addEventListener('pointerleave',() => clearTimeout(holdTimer));
+    document.getElementById('debugClose').addEventListener('click', () => debugEl.classList.remove('open'));
 
+    document.getElementById('debugInput').addEventListener('keydown', async e => {
+      if (e.key !== 'Enter') return;
+      const q = e.target.value.trim();
+      if (!q) return;
+      const box = document.getElementById('debugHits');
+      box.textContent = 'Querying Vector Engine...';
+      try {
+        const res = await fetch(`/api/search/${encodeURIComponent(q)}`);
+        const hits = await res.json();
+        box.textContent = '';
+        if (!hits.length) { box.textContent = 'Zero vectors returned.'; return; }
+        hits.forEach((hit, i) => {
+          const score = hit.score ?? 0;
+          const el = document.createElement('div');
+          el.className = 'hit-card';
+          el.innerHTML = `
+            <div class="hit-header">
+              <span class="hit-index">#${i+1}</span>
+              <span class="score-bar"><span class="score-fill ${score < THRESHOLD ? 'low':''}" style="width:${Math.min(100, score*100)}%"></span></span>
+              <span class="hit-score">${score.toFixed(3)}</span>
+            </div>
+            <div class="hit-content"></div>`;
+          el.querySelector('.hit-content').textContent = hit.text;
+          box.appendChild(el);
+        });
+      } catch { box.textContent = 'Diagnostic API connection fault.'; }
+    });
+
+    /* ============================================================
+       BACKEND HEALTH CHECK
+       ============================================================ */
     (async () => {
       try {
         const r = await fetch('/api/search/test');
-        if (r.ok) {
-          statusDot.className = 'dot ok';
-          statusText.textContent = 'подключено · llama.cpp + whisper.cpp';
-        } else {
-          statusDot.className = 'dot bad';
-          statusText.textContent = 'backend отвечает с ошибкой ' + r.status;
-        }
+        if (!r.ok) stateText.textContent = 'SERVICE ERROR ' + r.status;
       } catch {
-        statusDot.className = 'dot bad';
-        statusText.textContent = 'нет связи с backend';
+        stateText.textContent = 'OFFLINE — PORT 9090 UNREACHABLE';
       }
     })();
-
-    inputEl.focus();
 </script>
 
 </body>
